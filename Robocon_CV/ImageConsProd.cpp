@@ -106,6 +106,7 @@ void ImageConsProd::ImageConsumer(){
     int maxArea = -1;
     Point maxCoor;
     Mat roiMask;
+    Mat copyROI;
 
     while(1){
         while(prdIdx - csmIdx == 0);
@@ -143,8 +144,8 @@ void ImageConsProd::ImageConsumer(){
         bitwise_and(src, src, res1, mask1);
         imshow_("mask1", res1, isShow);
 
-        Mat element = getStructuringElement(MORPH_RECT, Size(11, 11));
-        Mat element1 = getStructuringElement(MORPH_RECT, Size(11, 11));
+        Mat element = getStructuringElement(MORPH_RECT, Size(5, 5));
+        Mat element1 = getStructuringElement(MORPH_RECT, Size(9, 9));
         morphologyEx(mask1, mask2, MORPH_OPEN, element);//开操作
         bitwise_and(src, src, res2, mask2);
         imshow_("mask2", res2, isShow);
@@ -189,6 +190,7 @@ void ImageConsProd::ImageConsumer(){
                     rect.x = 0;
                     rect.y = 0;
                     roiMask = mask3(rect);
+                    //copyROI = mask3(rect);
                     imshow_("haha", roiMask, isShow);
                     mInit = 2;
                 }
@@ -198,6 +200,39 @@ void ImageConsProd::ImageConsumer(){
         
         contours.clear(); hierarchy.clear();
         //imshow_("roiMask", roiMask, isShow);
+        /*
+        float line[3];
+
+        if (RansacLine(roiMask, line))
+        {
+            cv::Point point1, point2;
+            if (line[0] == 0 && line[1] != 0)
+            {
+                point1 = cv::Point(0, -1 * line[2] / line[1]);
+                point2 = cv::Point(copyROI.cols - 1, -1 * line[2] / line[1]);
+            }
+            else if (line[0] != 0 && line[1] == 0)
+            {
+                point1 = cv::Point(-1 * line[2] / line[0], 0);
+                point2 = cv::Point(-1 * line[2] / line[0], copyROI.rows - 1);
+            }
+            else
+            {
+                point1 = cv::Point(0, -1 * line[2] / line[1]);
+                point2 = cv::Point(copyROI.cols, -1 * (copyROI.cols * line[0] + line[2]) / line[1]);
+
+            }
+            std::cout << "line: " << line << std::endl;
+            cv::line(copyROI, point1, point2, cv::Scalar(0, 255, 0));
+            cv::namedWindow("Ransac line", 0);
+            imshow("Ransac line", copyROI);
+            cv::waitKey(0);
+        }
+        else
+        {
+            std::cout << "寻找直线失败，请确认图像，并调整提取前景的阈值" << std::endl;
+        }*/
+
 
         findContours(roiMask, contours, hierarchy, RETR_CCOMP, CHAIN_APPROX_SIMPLE);//查找轮廓
         Point2d midBucket;
@@ -205,6 +240,9 @@ void ImageConsProd::ImageConsumer(){
         for (int i = 0; i < contours.size(); i++) { //读取每一个轮廓求取重心
             Mat temp(contours.at(i));
             moment = moments(temp, false);
+            if (contourArea(contours.at(i)) < 200) {
+                continue;
+            }
             if (moment.m00 != 0) {//除数不能为0
                 pt[i].x = cvRound(moment.m10 / moment.m00);//计算重心横坐标
                 pt[i].y = cvRound(moment.m01 / moment.m00);//计算重心纵坐标
@@ -212,13 +250,42 @@ void ImageConsProd::ImageConsumer(){
                     minDx = (pt[i].x - VIDEO_WIDTH / 2.f);
                     midBucket = pt[i];
                 }
+
+                
+
+                RotatedRect rrrect = minAreaRect(contours.at(i));
+                RotatedRect rrect(rrrect.center, rrrect.size + Size2f(0, 10), rrrect.angle);
+                Point2f vertices0[4];
+                rrect.points(vertices0);
+                for (int i = 0; i < 4; i++)
+                    line(src, vertices0[i], vertices0[(i + 1) % 4], Scalar(0, 0, 255), 2);
+                
+                sort(vertices0, vertices0 + 4, [](Point2f& a, Point2f& b) { return a.x <= b.x; });
+                
+                //cout << vertices0[0] << vertices0[1] << vertices0[2] << vertices0[3] << endl;
+
+                Point2f tl(vertices0[0]), bl(vertices0[1]), tr(vertices0[2]), br(vertices0[3]);
+                
+                if (tl.y > bl.y) {
+                    swap(tl, bl);
+                }
+                if (tr.y > br.y) {
+                    swap(tr, br);
+                }
+                Point2f tmid(tl + (tr - tl) / 2.f), bmid(bl + (br - bl) / 2.f);
+
+                RotatedRect left(Point2f(tl.x , tl.y), Point2f(bl.x , bl.y), bmid);
+                RotatedRect right(Point2f(br.x , br.y), Point2f(tr.x , tr.y), tmid);
+                
+                Point2f vertices[4];
+                left.points(vertices);
+                for (int i = 0; i < 4; i++)
+                    line(src, vertices[i], vertices[(i + 1) % 4], Scalar(0, 255, 0), 2);
             }
             Point p = Point(pt[i].x, pt[i].y);//重心坐标
             circle(src, p, 1, Scalar(255, 255, 255), 5, 8);//原图画出重心坐标
             imshow_("imgW", src, isShow);
         }
-        cout << midBucket << endl;
-        //cout << endl;
 
         //-----------------------------------------------------------
 
@@ -228,6 +295,73 @@ void ImageConsProd::ImageConsumer(){
         waitKey(1);
 
     }
+}
+
+bool ImageConsProd::RansacLine(cv::Mat& img_bin, float* line)
+{
+    if (img_bin.empty() || img_bin.channels() != 1)
+        return false;
+    std::vector<cv::Point> points;
+    for (int i = 0; i < img_bin.rows; i++)
+    {
+        uchar* pb = img_bin.ptr<uchar>(i);
+        for (int j = 0; j < img_bin.cols; j++)
+        {
+            if (pb[j] > 0)//前景，根据情况修改条件，收集所有目标点
+                points.push_back(cv::Point(j, i));
+        }
+    }
+    if (points.size() == 0)
+        return false;
+    int distance_thres = 2;//满足集内条件，即以当前点到直线距离不大于distance_thres认定为该点在直线上。
+    int loop_count = 0;
+    int iner_count = 0;
+    int max_iner_count = 0;
+    float distance = 0;
+    float sqrt_ = 0;
+    int rand_k1 = 0, rand_k2 = 0;
+    cv::Point point1, point2;
+    float A = 0, B = 0, C = 0;
+    float max_dis = 0, min_dis = 100000, average_dis = 0;
+    while (loop_count++ < 10000)//最大循环次数，根据情况可设定为所有点数的10倍
+    {
+        srand((unsigned int)time(0));
+        rand_k1 = rand() % points.size();
+        point1 = points[rand_k1];
+        rand_k2 = rand() % points.size();
+        while (rand_k1 == rand_k2)
+            rand_k2 = rand() % points.size();
+        point2 = points[rand_k2];
+        A = point2.y - point1.y;
+        B = point1.x - point2.x;
+        C = point1.x * (point1.y - point2.y) + point1.y * (point2.x - point1.x);
+        sqrt_ = sqrtf(A * A + B * B);
+        iner_count = 0;
+        float max_dis_ = 0, min_dis_ = 100000, sum_dis = 0;
+        for (int i = 0; i < points.size(); i++)
+        {
+            distance = abs(points[i].x * A + points[i].y * B + C) * 1.0 / sqrt_;
+            if (distance < distance_thres)
+                iner_count++;
+            if (max_dis_ < distance)
+                max_dis_ = distance;
+            if (min_dis_ > distance)
+                min_dis_ = distance;
+            sum_dis += distance;
+        }
+        if (iner_count >= max_iner_count)
+        {
+            max_iner_count = iner_count;
+            line[0] = A;
+            line[1] = B;
+            line[2] = C;
+            max_dis = max_dis_;
+            min_dis = min_dis_;
+            average_dis = sum_dis / points.size();
+        }
+    }
+    std::cout << "Ransac line 最大误差：" << max_dis << " 最小误差：" << min_dis << " 平均误差：" << average_dis << std::endl;
+    return true;
 }
 
 void ImageConsProd::imshow_(string winName, Mat m, bool isShow) {

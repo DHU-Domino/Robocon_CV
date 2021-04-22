@@ -37,6 +37,7 @@ public:
     void ImageProducer();
     void ImageConsumer();
 
+    bool RansacLine(cv::Mat& img_bin, float* line);
     void imshow_(std::string winName, cv::Mat m, bool isShow);
 };
 
