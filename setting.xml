@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<opencv_storage>
+<!--  X/Y偏移值(偏移量必须为16的倍数)   -->
+<OffSetX>0</OffSetX>
+<OffSety>0</OffSety>
+<!--  ROI图像大小   -->
+<Width>1280</Width>
+<Height>1024</Height>
+<!--  曝光时间   -->
+<ExposeTime>40000</ExposeTime>
+<!--  增益(-1为自动)   -->
+<AdjustPlus>-1</AdjustPlus>
+<!--  白平衡(-1为自动)   -->
+<BalanceRatio>-1</BalanceRatio>
+<!--  帧率   -->
+<FrameRate>100</FrameRate>
+</opencv_storage>
