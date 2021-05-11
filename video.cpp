@@ -48,7 +48,7 @@ void video::initParam()
     status = GXSetFloat(hDevice, GX_FLOAT_EXPOSURE_TIME, dExposureValue);
     //status = GXSetEnum(hDevice, GX_ENUM_BALANCE_WHITE_AUTO, GX_BALANCE_WHITE_AUTO_CONTINUOUS);
     //status = GXSetEnum(hDevice, GX_ENUM_EXPOSURE_AUTO, GX_EXPOSURE_AUTO_CONTINUOUS);
-    status = GXSetEnum(hDevice,GX_ENUM_BALANCE_RATIO_SELECTOR, GX_BALANCE_RATIO_SELECTOR_RED);
+    status = GXSetEnum(hDevice, GX_ENUM_BALANCE_RATIO_SELECTOR, GX_BALANCE_RATIO_SELECTOR_RED);
     status = GXSetFloat(hDevice, GX_FLOAT_BALANCE_RATIO, 1.3906);
 }
 
@@ -136,7 +136,8 @@ bool video::getFrame(cv::Mat &img)
 
 void GX_STDC video::OnFrameCallbackFun(GX_FRAME_CALLBACK_PARAM *pFrame)
 {
-    //while (prdIdx - csmIdx >= 1);
+    while (prdIdx - csmIdx >= 1)
+        ;
     memcpy(m_pBufferRaw, pFrame->pImgBuf, pFrame->nImgSize);
 
     DxRaw8toRGB24(m_pBufferRaw, m_pBufferRGB, (VxUint32)(m_nImageWidth), (VxUint32)(m_nImageHeight), RAW2RGB_NEIGHBOUR, DX_PIXEL_COLOR_FILTER(m_nPixelColorFilter), false);
@@ -147,12 +148,10 @@ void GX_STDC video::OnFrameCallbackFun(GX_FRAME_CALLBACK_PARAM *pFrame)
     std::vector<cv::Mat> channels;
     split(img, channels);
     std::swap(channels[0], channels[2]);
-    merge(channels, img);
+    Mat tmp;
+    merge(channels, tmp);
 
-    //imshow("img", img);
-    //waitKey(1);
-
-    datadata[prdIdx % 1].img = img;
+    datadata[prdIdx % 1].img = tmp;
     datadata[prdIdx % 1].frame++;
     ++prdIdx;
 }

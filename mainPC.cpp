@@ -1,4 +1,4 @@
-#include "mainPC.h"
+﻿#include "mainPC.h"
 
 #include <ctime>
 #include <mutex>
@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <cstring>
+#include <fstream>
 #include <cstdlib>
 #include <iostream>
 #include <unistd.h>
@@ -21,7 +22,7 @@ using namespace std;
 using namespace cv;
 
 std::mutex data_mt;
-Mat img;
+Mat src, fix_img;
 
 volatile unsigned int prdIndex = 0;
 volatile unsigned int csmIndex = 0;
@@ -50,38 +51,113 @@ void mainPC::ImageProducer()
         a.streamControl(1);
         cerr << "ok\n";
     }
-    
     while (1)
     {
-        while (prdIndex - csmIndex >= 1);
-        data_mt.lock();
-        if (a.getFrame(img))
+        while (prdIndex - csmIndex >= 1)
+            ;
+        if (a.getFrame(src))
         {
-
         }
         else
         {
             printf("getFrame failed!\n");
             continue;
         }
-        data_mt.unlock();
         ++prdIndex;
     }
 }
 
 void mainPC::ImageConsumer()
 {
-    Mat src, src1;
+    cv::dnn::Net net = cv::dnn::readNetFromDarknet("/home/domino/OpenCV_web_test/asset/yolov4-tiny-obj-rc.cfg",
+                                                   "/home/domino/OpenCV_web_test/asset/yolov4-tiny-obj-rc_best.weights");
+    net.setPreferableBackend(cv::dnn::Backend::DNN_BACKEND_DEFAULT);
+    net.setPreferableTarget(cv::dnn::Target::DNN_TARGET_CPU);
+    std::vector<String> outNames = net.getUnconnectedOutLayersNames();
+    for (int i = 0; i < outNames.size(); i++)
+    {
+        printf("output layer name : %s\n", outNames[i].c_str());
+    }
+    vector<string> classNamesVec;
+    ifstream classNamesFile("/home/domino/OpenCV_web_test/asset/obj-rc.names");
+    if (classNamesFile.is_open())
+    {
+        string className = "";
+        while (std::getline(classNamesFile, className))
+        {
+            cout << className << endl;
+            classNamesVec.push_back(className);
+        }
+    }
     while (1)
     {
-        while (prdIndex - csmIndex == 0);
-        
-        Mat src;
-        img.copyTo(src);
-        
-        //imshow("out", src);
-        //waitKey(1);
+        while (prdIndex - csmIndex == 0)
+            ;
+        data_mt.lock();
 
+        src.copyTo(fix_img);
+        try
+        {
+            int64 start = getTickCount();
+            Mat inputBlob = cv::dnn::blobFromImage(fix_img, 1 / 255.F, Size(416, 416), Scalar(), true, false);
+            net.setInput(inputBlob);
+            // 检测
+            std::vector<Mat> outs;
+            net.forward(outs, outNames);
+            //cerr << "outs.size(): " << outs.size() << endl;
+            vector<Rect> boxes;
+            vector<int> classIds;
+            vector<float> confidences;
+            for (size_t i = 0; i < outs.size(); ++i)
+            {
+                // detected objects and C is a number of classes + 4 where the first 4
+                float *data = (float *)outs[i].data;
+                for (int j = 0; j < outs[i].rows; ++j, data += outs[i].cols)
+                {
+                    Mat scores = outs[i].row(j).colRange(5, outs[i].cols);
+                    Point classIdPoint;
+                    double confidence;
+                    minMaxLoc(scores, 0, &confidence, 0, &classIdPoint);
+                    //cout << "confidence: " << confidence << endl;
+                    if (confidence > 0.5)
+                    {
+                        int centerX = (int)(data[0] * fix_img.cols);
+                        int centerY = (int)(data[1] * fix_img.rows);
+                        int width = (int)(data[2] * fix_img.cols);
+                        int height = (int)(data[3] * fix_img.rows);
+                        int left = centerX - width / 2;
+                        int top = centerY - height / 2;
+
+                        classIds.push_back(classIdPoint.x);
+                        confidences.push_back((float)confidence);
+                        boxes.push_back(Rect(left, top, width, height));
+                    }
+                }
+            }
+
+            vector<int> indices;
+            cv::dnn::NMSBoxes(boxes, confidences, 0.5, 0.2, indices);
+            for (size_t i = 0; i < indices.size(); ++i)
+            {
+                int idx = indices[i];
+                Rect box = boxes[idx];
+                String className = classNamesVec[classIds[idx]];
+                putText(fix_img, className.c_str(), box.tl(), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0), 2, 8);
+                rectangle(fix_img, box, Scalar(0, 0, 255), 2, 8, 0);
+            }
+            float fps = getTickFrequency() / (getTickCount() - start);
+            float time = (getTickCount() - start) / getTickFrequency();
+            ostringstream ss;
+            ss << "FPS : " << fps << " detection time: " << time * 1000 << " ms";
+            putText(fix_img, ss.str(), Point(20, 40), 0, 1, Scalar(0, 0, 255));
+            
+            
+        }
+        catch (cv::Exception e)
+        {
+            cerr << e.what();
+        }
+        data_mt.unlock();
         ++csmIndex;
     }
 }
