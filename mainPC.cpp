@@ -27,6 +27,14 @@ Mat src, fix_img;
 volatile unsigned int prdIndex = 0;
 volatile unsigned int csmIndex = 0;
 
+Point getCenterPoint(Rect rect)
+{
+    Point cpt;
+    cpt.x = rect.x + cvRound(rect.width/2.0);
+    cpt.y = rect.y + cvRound(rect.height/2.0);
+    return cpt;
+}
+
 mainPC::mainPC(int *setting)
 {
     FileStorage storage("setting.xml", FileStorage::READ);
@@ -51,12 +59,21 @@ void mainPC::ImageProducer()
         a.streamControl(1);
         cerr << "ok\n";
     }
+    long long oldtime = chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch()).count();
+    
     while (1)
     {
         while (prdIndex - csmIndex >= 1)
             ;
         if (a.getFrame(src))
         {
+            long long newtime = chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch()).count();
+            if(newtime - oldtime > 5){
+                string t = "/home/domino/domino_dataset/"+to_string(newtime)+".bmp";
+                imwrite(t.c_str(), src);
+                oldtime = newtime;
+                cout << "photo\n";
+            }
         }
         else
         {
@@ -137,14 +154,28 @@ void mainPC::ImageConsumer()
 
             vector<int> indices;
             cv::dnn::NMSBoxes(boxes, confidences, 0.5, 0.2, indices);
+            Rect midBox(1280/2-1,1080/2-1,2,2);
+            int distance = 1280;
+            int midIndex = 0;
             for (size_t i = 0; i < indices.size(); ++i)
             {
                 int idx = indices[i];
                 Rect box = boxes[idx];
-                String className = classNamesVec[classIds[idx]];
-                putText(fix_img, className.c_str(), box.tl(), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0), 2, 8);
-                rectangle(fix_img, box, Scalar(0, 0, 255), 2, 8, 0);
+                int delta_x = abs(getCenterPoint(box).x - 1280/2.0);
+                if(delta_x < distance){
+                    distance = delta_x;
+                    midBox = box;
+                    midIndex = idx;
+                }
             }
+            if(indices.size() != 0){
+                //cout << "distance: " << distance << " indices.size():" << indices.size() << " x:" << midBox.x << " y:" << midBox.y << endl;
+                rectangle(fix_img, midBox, Scalar(0, 0, 255), 2, 8, 0);
+                String className = classNamesVec[classIds[midIndex]];
+                putText(fix_img, className.c_str(), midBox.tl(), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0), 2, 8);
+            }
+            
+
             float fps = getTickFrequency() / (getTickCount() - start);
             float time = (getTickCount() - start) / getTickFrequency();
             ostringstream ss;
