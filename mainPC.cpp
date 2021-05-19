@@ -67,6 +67,7 @@ void mainPC::ImageProducer()
             ;
         if (a.getFrame(src))
         {
+            /*
             long long newtime = chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch()).count();
             if(newtime - oldtime > 5){
                 string t = "/home/domino/domino_dataset/"+to_string(newtime)+".bmp";
@@ -74,6 +75,7 @@ void mainPC::ImageProducer()
                 oldtime = newtime;
                 cout << "photo\n";
             }
+            */
         }
         else
         {
@@ -87,7 +89,7 @@ void mainPC::ImageProducer()
 void mainPC::ImageConsumer()
 {
     cv::dnn::Net net = cv::dnn::readNetFromDarknet("/home/domino/OpenCV_web_test/asset/yolov4-tiny-obj-rc.cfg",
-                                                   "/home/domino/OpenCV_web_test/asset/yolov4-tiny-obj-rc_best.weights");
+                                                   "/home/domino/OpenCV_web_test/asset/yolov4-tiny-obj-rc_1000.weights");
     net.setPreferableBackend(cv::dnn::Backend::DNN_BACKEND_DEFAULT);
     net.setPreferableTarget(cv::dnn::Target::DNN_TARGET_CPU);
     std::vector<String> outNames = net.getUnconnectedOutLayersNames();
@@ -171,7 +173,7 @@ void mainPC::ImageConsumer()
             if(indices.size() != 0){
                 //cout << "distance: " << distance << " indices.size():" << indices.size() << " x:" << midBox.x << " y:" << midBox.y << endl;
                 rectangle(fix_img, midBox, Scalar(0, 0, 255), 2, 8, 0);
-                String className = classNamesVec[classIds[midIndex]];
+                String className = "total:" + to_string(indices.size()) + "  " + classNamesVec[classIds[midIndex]];
                 putText(fix_img, className.c_str(), midBox.tl(), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0), 2, 8);
             }
             
