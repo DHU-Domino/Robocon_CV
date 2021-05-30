@@ -79,6 +79,17 @@ void* SocketTask(void* arg) {
             message += to_string(static_cast<float>(tmp.tr_data_act_pos_sys_y.d));
             message += ',';
             message += to_string(static_cast<float>(tmp.tr_data_act_pos_sys_w.d));
+            message += ',';
+
+            message += to_string(static_cast<float>(tmp.isAutoAim.d));
+            message += ',';
+            message += to_string(static_cast<float>(tmp.aim_which_bucket.d));
+            message += ',';
+            message += to_string(static_cast<float>(tmp.world_x.d));
+            message += ',';
+            message += to_string(static_cast<float>(tmp.world_y.d));
+            message += ',';
+            message += to_string(static_cast<float>(tmp.world_angle_yaw.d));
 
             message += '\n';
 

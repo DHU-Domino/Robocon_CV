@@ -1,5 +1,5 @@
 ﻿cmake_minimum_required(VERSION 3.10)
-project(server)
+project(Domino)
 
 set(CMAKE_BUILD_TYPE "Debug")
 set(CMAKE_CXX_COMPILER "g++")
@@ -18,7 +18,7 @@ include_directories(
     "/home/domino/20210322/Downloads/Galaxy_1.2.1911.9122/Galaxy_camera/inc"
 )
 
-add_executable(server 
+add_executable(Domino 
     main.cpp
     WzSerialportPlus.cpp
     TCPServer.cpp

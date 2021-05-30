@@ -18,11 +18,19 @@
 #include <netinet/in.h>
 #include <opencv2/opencv.hpp>
 
+#include "TCPServer.h"
+#include "WzSerialportPlus.h"
+#include "CRC_Check.h"
+
 using namespace std;
 using namespace cv;
 
 std::mutex data_mt;
 Mat src, fix_img;
+
+extern TCPServer tcp;
+extern ProdCons_data pc_data[1];
+extern WzSerialportPlus wzSerialportPlus;
 
 volatile unsigned int prdIndex = 0;
 volatile unsigned int csmIndex = 0;
@@ -30,8 +38,8 @@ volatile unsigned int csmIndex = 0;
 Point getCenterPoint(Rect rect)
 {
     Point cpt;
-    cpt.x = rect.x + cvRound(rect.width/2.0);
-    cpt.y = rect.y + cvRound(rect.height/2.0);
+    cpt.x = rect.x + cvRound(rect.width / 2.0);
+    cpt.y = rect.y + cvRound(rect.height / 2.0);
     return cpt;
 }
 
@@ -60,22 +68,13 @@ void mainPC::ImageProducer()
         cerr << "ok\n";
     }
     long long oldtime = chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch()).count();
-    
+
     while (1)
     {
         while (prdIndex - csmIndex >= 1)
             ;
         if (a.getFrame(src))
         {
-            /*
-            long long newtime = chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch()).count();
-            if(newtime - oldtime > 5){
-                string t = "/home/domino/domino_dataset/"+to_string(newtime)+".bmp";
-                imwrite(t.c_str(), src);
-                oldtime = newtime;
-                cout << "photo\n";
-            }
-            */
         }
         else
         {
@@ -108,6 +107,7 @@ void mainPC::ImageConsumer()
             classNamesVec.push_back(className);
         }
     }
+    int autoAim = 0;
     while (1)
     {
         while (prdIndex - csmIndex == 0)
@@ -156,35 +156,63 @@ void mainPC::ImageConsumer()
 
             vector<int> indices;
             cv::dnn::NMSBoxes(boxes, confidences, 0.5, 0.2, indices);
-            Rect midBox(1280/2-1,1080/2-1,2,2);
+            Rect midBox(1280 / 2 - 1, 1080 / 2 - 1, 2, 2);
             int distance = 1280;
             int midIndex = 0;
+
+            tcp.mtSerialData.lock();
+            //autoAim = pc_data[0].data.isAutoAim.d;
+            autoAim = 1;
+            tcp.mtSerialData.unlock();
             for (size_t i = 0; i < indices.size(); ++i)
             {
                 int idx = indices[i];
                 Rect box = boxes[idx];
-                int delta_x = abs(getCenterPoint(box).x - 1280/2.0);
-                if(delta_x < distance){
+                int delta_x = abs(getCenterPoint(box).x - 1280 / 2.0);
+                char rb;
+                if (autoAim == 1)
+                    rb = 'r';
+                else if (autoAim == 2)
+                    rb = 'b';
+                else
+                    rb = ' ';
+                if (delta_x < distance && classNamesVec[classIds[idx]][0] == rb)
+                {
                     distance = delta_x;
                     midBox = box;
                     midIndex = idx;
                 }
             }
-            if(indices.size() != 0){
+            if (indices.size() != 0)
+            {
                 //cout << "distance: " << distance << " indices.size():" << indices.size() << " x:" << midBox.x << " y:" << midBox.y << endl;
                 rectangle(fix_img, midBox, Scalar(0, 0, 255), 2, 8, 0);
+                line(fix_img,Point2i(1280/2,0),Point2i(1280/2,1080),cv::Scalar(255,0,0), 2);
                 String className = "total:" + to_string(indices.size()) + "  " + classNamesVec[classIds[midIndex]];
                 putText(fix_img, className.c_str(), midBox.tl(), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0), 2, 8);
+                
+                Send2Stm32 send_data{
+                    int16_t(getCenterPoint(midBox).x - 1280 / 2.0), float(0)
+                };
+                unsigned char Tdata[9];
+                Tdata[0] = 0xA5;
+                Tdata[1] = 0x5A;
+
+                Tdata[2] = send_data.delta_x_pixel.c[0];
+                Tdata[3] = send_data.delta_x_pixel.c[1];
+                Tdata[4] = send_data.delta_angle_yaw.c[0];
+                Tdata[5] = send_data.delta_angle_yaw.c[1];
+                Tdata[6] = send_data.delta_angle_yaw.c[2];
+                Tdata[7] = send_data.delta_angle_yaw.c[3];
+                Append_CRC8_Check_Sum(Tdata,9);
+                wzSerialportPlus.send(Tdata,9);
             }
-            
 
             float fps = getTickFrequency() / (getTickCount() - start);
             float time = (getTickCount() - start) / getTickFrequency();
             ostringstream ss;
             ss << "FPS : " << fps << " detection time: " << time * 1000 << " ms";
             putText(fix_img, ss.str(), Point(20, 40), 0, 1, Scalar(0, 0, 255));
-            
-            
         }
         catch (cv::Exception e)
         {

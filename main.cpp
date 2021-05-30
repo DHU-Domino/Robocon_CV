@@ -64,6 +64,7 @@ void serialTask()
             float(0), float(0), int8_t(0),
 
             int8_t(0), float(0),
+            int8_t(0), int8_t(0), float(0), float(0), float(0),
             int8_t(0), int8_t(0), int8_t(0)};
 
         memcpy(&send_data, data, sizeof(send_data));

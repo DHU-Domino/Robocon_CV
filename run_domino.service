@@ -1,0 +1,9 @@
+[Unit]
+Description=for my robot
+After=network-online.target
+
+[Service]
+ExecStart=/home/domino/OpenCV_web_test/dog.sh
+
+[Install]
+WantedBy=multi-user.target
