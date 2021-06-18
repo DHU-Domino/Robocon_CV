@@ -161,9 +161,12 @@ void mainPC::ImageConsumer()
             int midIndex = 0;
 
             tcp.mtSerialData.lock();
-            //autoAim = pc_data[0].data.isAutoAim.d;
-            autoAim = 1;
+            autoAim = pc_data[0].data.isAutoAim.d;
+            if(autoAim != 0)
+                cout << "autoAim: " << autoAim << endl;
+            //autoAim = 1;
             tcp.mtSerialData.unlock();
+
             for (size_t i = 0; i < indices.size(); ++i)
             {
                 int idx = indices[i];
@@ -204,6 +207,7 @@ void mainPC::ImageConsumer()
                 Tdata[5] = send_data.delta_angle_yaw.c[1];
                 Tdata[6] = send_data.delta_angle_yaw.c[2];
                 Tdata[7] = send_data.delta_angle_yaw.c[3];
+                cout << send_data.delta_x_pixel.d << endl;
                 Append_CRC8_Check_Sum(Tdata,9);
                 wzSerialportPlus.send(Tdata,9);
             }

@@ -15,7 +15,8 @@ find_package(Threads)
 
 include_directories(
     ${PROJECT_SOURCE_DIR}
-    "/home/domino/20210322/Downloads/Galaxy_1.2.1911.9122/Galaxy_camera/inc"
+    ${CURL_INCLUDE_DIR}
+    /home/domino/20210322/Downloads/Galaxy_1.2.1911.9122/Galaxy_camera/inc
 )
 
 add_executable(Domino 
@@ -29,14 +30,13 @@ add_executable(Domino
 
 target_link_libraries(
     ${PROJECT_NAME}
+
     ${OpenCV_LIBS}
+    ${CURL_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
+
+    -lco
+    -ldl
     -lgxiapi
-    opencv_core
-    opencv_imgproc
-    opencv_dnn
-    opencv_imgcodecs
-    opencv_videoio
-    opencv_highgui
 )
 

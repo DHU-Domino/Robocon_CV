@@ -5,6 +5,11 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/dnn.hpp>
 
+#include "co/co.h"
+#include "co/log.h"
+#include "co/time.h"
+#include "co/thread.h"
+
 class mainPC
 {
 public:
