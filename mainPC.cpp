@@ -27,8 +27,9 @@ using namespace cv;
 
 std::mutex data_mt;
 Mat src, fix_img;
+Json r;
 
-extern TCPServer tcp;
+extern TCPServer tcpp;
 extern ProdCons_data pc_data[1];
 extern WzSerialportPlus wzSerialportPlus;
 
@@ -87,6 +88,12 @@ void mainPC::ImageProducer()
 
 void mainPC::ImageConsumer()
 {
+    auto a = r.add_array("categories", 20);
+    auto b = r.add_array("data", 20);
+
+    a.push_back(0);
+    b.push_back(0);
+
     cv::dnn::Net net = cv::dnn::readNetFromDarknet("/home/domino/OpenCV_web_test/asset/yolov4-tiny-obj-rc.cfg",
                                                    "/home/domino/OpenCV_web_test/asset/yolov4-tiny-obj-rc_1000.weights");
     net.setPreferableBackend(cv::dnn::Backend::DNN_BACKEND_DEFAULT);
@@ -108,6 +115,7 @@ void mainPC::ImageConsumer()
         }
     }
     int autoAim = 0;
+    int last_delta_x = 0;
     while (1)
     {
         while (prdIndex - csmIndex == 0)
@@ -160,12 +168,14 @@ void mainPC::ImageConsumer()
             int distance = 1280;
             int midIndex = 0;
 
-            tcp.mtSerialData.lock();
+            tcpp.mtSerialData.lock();
             autoAim = pc_data[0].data.isAutoAim.d;
-            if(autoAim != 0)
+            if (autoAim != 0)
                 cout << "autoAim: " << autoAim << endl;
+            else
+                cout << "autoAim: close\n";
             //autoAim = 1;
-            tcp.mtSerialData.unlock();
+            tcpp.mtSerialData.unlock();
 
             for (size_t i = 0; i < indices.size(); ++i)
             {
@@ -186,21 +196,18 @@ void mainPC::ImageConsumer()
                     midIndex = idx;
                 }
             }
-            if (indices.size() != 0)
+            if (indices.size() != 0 && autoAim != 0)
             {
                 //cout << "distance: " << distance << " indices.size():" << indices.size() << " x:" << midBox.x << " y:" << midBox.y << endl;
                 rectangle(fix_img, midBox, Scalar(0, 0, 255), 2, 8, 0);
-                line(fix_img,Point2i(1280/2,0),Point2i(1280/2,1080),cv::Scalar(255,0,0), 2);
                 String className = "total:" + to_string(indices.size()) + "  " + classNamesVec[classIds[midIndex]];
                 putText(fix_img, className.c_str(), midBox.tl(), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0), 2, 8);
-                
+
                 Send2Stm32 send_data{
-                    int16_t(getCenterPoint(midBox).x - 1280 / 2.0), float(0)
-                };
+                    int16_t(getCenterPoint(midBox).x - 1280 / 2.0), float(0)};
                 unsigned char Tdata[9];
                 Tdata[0] = 0xA5;
                 Tdata[1] = 0x5A;
-
                 Tdata[2] = send_data.delta_x_pixel.c[0];
                 Tdata[3] = send_data.delta_x_pixel.c[1];
                 Tdata[4] = send_data.delta_angle_yaw.c[0];
@@ -208,15 +215,29 @@ void mainPC::ImageConsumer()
                 Tdata[6] = send_data.delta_angle_yaw.c[2];
                 Tdata[7] = send_data.delta_angle_yaw.c[3];
                 cout << send_data.delta_x_pixel.d << endl;
-                Append_CRC8_Check_Sum(Tdata,9);
-                wzSerialportPlus.send(Tdata,9);
+                last_delta_x = send_data.delta_x_pixel.d;
+                
+                Append_CRC8_Check_Sum(Tdata, 9);
+                wzSerialportPlus.send(Tdata, 9);
+
+                a.push_back(getTickCount() % 1000);
+                if (abs(send_data.delta_x_pixel.d) > 50)
+                {
+                    b.push_back(50);
+                }
+                else
+                {
+                    b.push_back(int(send_data.delta_x_pixel.d));
+                }
             }
 
             float fps = getTickFrequency() / (getTickCount() - start);
             float time = (getTickCount() - start) / getTickFrequency();
             ostringstream ss;
             ss << "FPS : " << fps << " detection time: " << time * 1000 << " ms";
-            putText(fix_img, ss.str(), Point(20, 40), 0, 1, Scalar(0, 0, 255));
+            line(fix_img, Point2i(1280 / 2, 0), Point2i(1280 / 2, 1080), cv::Scalar(255, 0, 0), 2);
+            putText(fix_img, ss.str(), Point(20, 40), 0, 1, Scalar(0, 0, 255), 2);
+            putText(fix_img, "last_delta_x: " + to_string(last_delta_x), Point(20, 100), 0, 1, Scalar(0, 0, 255), 2);
         }
         catch (cv::Exception e)
         {

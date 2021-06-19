@@ -6,8 +6,10 @@
 #include <opencv2/dnn.hpp>
 
 #include "co/co.h"
+#include "co/so.h"
 #include "co/log.h"
 #include "co/time.h"
+#include "co/json.h"
 #include "co/thread.h"
 
 class mainPC

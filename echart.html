@@ -1,0 +1,72 @@
+<!--
+    THIS EXAMPLE WAS DOWNLOADED FROM https://echarts.apache.org/examples/zh/editor.html?c=doc-example/tutorial-dynamic-data
+-->
+<!DOCTYPE html>
+<html style="height: 100%">
+
+<head>
+    <meta charset="utf-8">
+</head>
+
+<body style="height: 100%; margin: 0">
+    <div id="container" style="height: 100%"></div>
+
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <script type="text/javascript">
+        var dom = document.getElementById("container");
+        var myChart = echarts.init(dom, 'dark');
+        var x = [];
+        var y = [];
+
+        var option = {
+            xAxis: {
+                type: 'category',
+                boundaryGap: false,
+                data: x
+            },
+            yAxis: {
+                boundaryGap: [0, '50%'],
+                type: 'value'
+            },
+            series: [
+                {
+                    name: 'delta_x',
+                    type: 'line',
+                    smooth: true,
+                    symbol: 'none',
+                    stack: 'a',
+                    areaStyle: {
+                        normal: {}
+                    },
+                    data: y
+                }
+            ]
+        };
+        myChart.setOption(option);
+
+        setInterval(function () {
+
+            $.get('http://192.168.31.80/json').done(function (data) {
+                // 填入数据
+                data = jQuery.parseJSON(data);
+                x.push(data.categories);
+                y.push(data.data);
+
+                myChart.setOption({
+                    xAxis: {
+                        data: x
+                    },
+                    series: [{
+                        name: 'delta_x',
+                        data: y
+                    }]
+                });
+            });
+        }, 50);
+
+
+    </script>
+</body>
+
+</html>

@@ -22,7 +22,7 @@ void _callback(int client, Server_base::Functions &paths_f)
     close(client);
 }
 
-namespace http
+namespace httpp
 {
 
     class Server : public Server_base
