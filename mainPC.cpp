@@ -135,7 +135,6 @@ void mainPC::ImageConsumer()
             // 检测
             std::vector<Mat> outs;
             net.forward(outs, outNames);
-            //cerr << "outs.size(): " << outs.size() << endl;
             vector<Rect> boxes;
             vector<int> classIds;
             vector<float> confidences;
@@ -149,7 +148,6 @@ void mainPC::ImageConsumer()
                     Point classIdPoint;
                     double confidence;
                     minMaxLoc(scores, 0, &confidence, 0, &classIdPoint);
-                    //cout << "confidence: " << confidence << endl;
                     if (confidence > 0.5)
                     {
                         int centerX = (int)(data[0] * fix_img.cols);
@@ -202,81 +200,44 @@ void mainPC::ImageConsumer()
             }
             if (indices.size() != 0 && autoAim != 0)
             {
-                //rectangle(fix_img, midBox, Scalar(0, 0, 255), 2, 8, 0);
+                rectangle(fix_img, midBox, Scalar(0, 0, 255), 2);
                 
                 Rect big_box(midBox.tl()-Point(15,10), midBox.br() + Point(15,10));
-                rectangle(fix_img, big_box, Scalar(255, 255, 255));
+                rectangle(fix_img, big_box, Scalar(255, 255, 255),2);
                 
-                /*
-                Mat imgHSV;
-                cvtColor(src, imgHSV, COLOR_BGR2HSV);
-                cvtColor(src, imgHSV1, COLOR_BGR2HSV);
-                cvtColor(src, imgHSV2, COLOR_BGR2HSV);
-
-                imgHSV1 = imgHSV1(big_box);
-                imgHSV2 = imgHSV2(big_box);
-
-                int iLowH1, iHighH1, iLowH2, iHighH2;
-                int iH = imgHSV.at<Vec3b>(big_box.x, big_box.y)[0];
-                int iS = imgHSV.at<Vec3b>(big_box.x, big_box.y)[1];
-                int iV = imgHSV.at<Vec3b>(big_box.x, big_box.y)[2];
-                int rangeH = 12, rangeS = 20, rangeV = 8;
-                if(iH > 180-rangeH && iH <= rangeH)
-                {
-                    iLowH1 = 180 + iH - rangeH;
-                    if(iLowH1 > 180){
-                        iLowH1 -= 180;
-                    }
-                    iHighH1 = 180;
-                    iLowH2 = 0;
-                    iHighH2 = iH + rangeH;
-                    if(iHighH2 > 180){
-                        iHighH2 -= 180;
-                    }
-                }
-                else
-                {
-                    iLowH1 = iH - rangeH;
-                    iHighH1 = iH + rangeH;
-                    iLowH2 = iH;
-                    iHighH2 =iH;
-                }
-                cout << iH << " " << iLowH1 << " " << iHighH1 << " " << iLowH2 << " " << iHighH2 << endl;
+                vector<vector <Point> >contours;
+                vector<Vec4i>hierarchy;
+                Mat tmp_src;
+                cvtColor(src(big_box),tmp_src,COLOR_BGR2GRAY);
                 
-                inRange(imgHSV1, Scalar(iLowH1, iS-rangeS, iV-rangeV), Scalar(iHighH1, iS+rangeS, iV+rangeV), mask0);
-                inRange(imgHSV2, Scalar(iLowH2, iS-rangeS, iV-rangeV), Scalar(iHighH2, iS+rangeS, iV+rangeV), mask1);
-                add(mask0, mask1, mask1);
+                findContours(tmp_src, contours, hierarchy, RETR_CCOMP, CHAIN_APPROX_SIMPLE);//查找轮廓
 
-                Mat element = getStructuringElement(MORPH_RECT, Size(9, 9));
-                morphologyEx(mask1, mask2, MORPH_CLOSE, element); //闭操作
+                Point pt[512];//存储连通区域个数
+                Moments moment;//矩
+                int maxArea = -1;
+                Point maxCoor;
+                for (int i = 0; i < contours.size(); i++) { //读取每一个轮廓求取重心
 
-                //-----------------------------------------------------------
-
-                vector<vector<Point>> contours;
-                vector<Vec4i> hierarchy;
-                findContours(mask2, contours, hierarchy, RETR_CCOMP, CHAIN_APPROX_SIMPLE); //查找轮廓
-
-                Point pt[512];  //存储连通区域个数
-                Moments moment; //矩
-                cout << "contours.size(): " << contours.size() << endl;
-                for (int i = 0; i < contours.size(); i++)
-                {
                     double t = contourArea(contours.at(i));
-                    cout << "areaT: " << t << endl;
-                    if (10 > t)
-                        continue;
-                    Rect good_rect = boundingRect(contours.at(i));
-                    cout << "good_rect: " << good_rect.tl()+big_box.tl() << endl;
-                    rectangle(fix_img, Rect(good_rect.tl()+big_box.tl(),good_rect.br()+big_box.br()), Scalar(0, 0, 255), 2, 8, 0);
+                    if (maxArea < t) {
+                        maxArea = t;
+                        Mat temp(contours.at(i));
+                        moment = moments(temp, false);
+                        maxCoor.x = cvRound(moment.m10 / moment.m00);
+                        maxCoor.y = cvRound(moment.m01 / moment.m00);
+                    }
                 }
-                contours.clear();
-                hierarchy.clear();
-*/
+                
+                Point ans = Point(maxCoor.x+big_box.x, maxCoor.y+big_box.y);
+                circle(fix_img, ans, 3, Scalar(255, 255, 255),2);
+                
+                cout << "error: " << ans.x - getCenterPoint(midBox).x << endl;
+
                 String className = "total:" + to_string(indices.size()) + "  " + classNamesVec[classIds[midIndex]];
                 putText(fix_img, className.c_str(), midBox.tl(), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0), 2, 8);
 
                 Send2Stm32 send_data{
-                    int16_t(getCenterPoint(midBox).x - 1280 / 2.0), float(0)};
+                    int16_t(ans.x - 1280 / 2.0), float(0)};
                 unsigned char Tdata[9];
                 Tdata[0] = 0xA5;
                 Tdata[1] = 0x5A;
@@ -293,17 +254,7 @@ void mainPC::ImageConsumer()
                 wzSerialportPlus.send(Tdata, 9);
 
                 a.push_back((now::ms() - ms_start));
-                if (abs(send_data.delta_x_pixel.d) > 50)
-                {
-                    if (send_data.delta_x_pixel.d > 0)
-                        b.push_back(30);
-                    else
-                        b.push_back(-30);
-                }
-                else
-                {
-                    b.push_back(int(send_data.delta_x_pixel.d));
-                }
+                b.push_back(int(send_data.delta_x_pixel.d));
             }
 
             float fps = getTickFrequency() / (getTickCount() - start);
