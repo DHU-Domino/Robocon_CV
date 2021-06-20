@@ -27,6 +27,7 @@ using namespace cv;
 
 std::mutex data_mt;
 Mat src, fix_img;
+Mat imgHSV1, imgHSV2, res1, res2, res3, res4, mask0, mask1, mask2, mask3;
 Json r;
 int autoAim = 0;
 
@@ -115,7 +116,7 @@ void mainPC::ImageConsumer()
             classNamesVec.push_back(className);
         }
     }
-    
+
     int last_delta_x = 0;
     int64_t ms_start = now::ms();
     while (1)
@@ -125,6 +126,7 @@ void mainPC::ImageConsumer()
         data_mt.lock();
 
         src.copyTo(fix_img);
+        
         try
         {
             int64 start = getTickCount();
@@ -200,37 +202,76 @@ void mainPC::ImageConsumer()
             }
             if (indices.size() != 0 && autoAim != 0)
             {
-                //cout << "distance: " << distance << " indices.size():" << indices.size() << " x:" << midBox.x << " y:" << midBox.y << endl;
-                rectangle(fix_img, midBox, Scalar(0, 0, 255), 2, 8, 0);
-                Point boxCenter(midBox.tl().x + midBox.width/2, midBox.tl().y + midBox.height/2);
-                circle(fix_img, boxCenter, 10, Scalar(255, 255, 255));
-
-                Mat imgHSV;
-                cvtColor(fix_img, imgHSV, COLOR_BGR2HSV);
-
-                double R = 100;
-                double angle = 30;
-                double h = R * cos(angle / 180 * 3.1415);
-                double r = R * sin(angle / 180 * 3.1415);
-
-                double H1 = imgHSV.at<Vec3b>(boxCenter.x, boxCenter.y)[0] * 2;
-                double S1 = imgHSV.at<Vec3b>(boxCenter.x, boxCenter.y)[1] / 255.0;
-                double V1 = imgHSV.at<Vec3b>(boxCenter.x, boxCenter.y)[2] / 255.0;
-                double x1 = r * V1 * S1 * cos(H1);
-                double y1 = r * V1 * S1 * sin(H1);
-                double z1 = h * (1 - V1);
+                //rectangle(fix_img, midBox, Scalar(0, 0, 255), 2, 8, 0);
                 
-                Point boxDelta(midBox.tl().x - midBox.width/2, midBox.tl().y + midBox.height/2);
-                circle(fix_img, boxDelta, 10, Scalar(255, 255, 255));
-                double H2 = imgHSV.at<Vec3b>(boxDelta.x, boxDelta.y)[0] * 2;
-                double S2 = imgHSV.at<Vec3b>(boxDelta.x, boxDelta.y)[1] / 255.0;
-                double V2 = imgHSV.at<Vec3b>(boxDelta.x, boxDelta.y)[2] / 255.0;
-                double x2 = r * V2 * S2 * cos(H2);
-                double y2 = r * V2 * S2 * sin(H2);
-                double z2 = h * (1 - V2);
+                Rect big_box(midBox.tl()-Point(15,10), midBox.br() + Point(15,10));
+                rectangle(fix_img, big_box, Scalar(255, 255, 255));
+                
+                /*
+                Mat imgHSV;
+                cvtColor(src, imgHSV, COLOR_BGR2HSV);
+                cvtColor(src, imgHSV1, COLOR_BGR2HSV);
+                cvtColor(src, imgHSV2, COLOR_BGR2HSV);
 
-                cout << sqrt(pow(x1-x2,2)+pow(y1-y2,2)+pow(z1-z2,2)) << endl;
+                imgHSV1 = imgHSV1(big_box);
+                imgHSV2 = imgHSV2(big_box);
 
+                int iLowH1, iHighH1, iLowH2, iHighH2;
+                int iH = imgHSV.at<Vec3b>(big_box.x, big_box.y)[0];
+                int iS = imgHSV.at<Vec3b>(big_box.x, big_box.y)[1];
+                int iV = imgHSV.at<Vec3b>(big_box.x, big_box.y)[2];
+                int rangeH = 12, rangeS = 20, rangeV = 8;
+                if(iH > 180-rangeH && iH <= rangeH)
+                {
+                    iLowH1 = 180 + iH - rangeH;
+                    if(iLowH1 > 180){
+                        iLowH1 -= 180;
+                    }
+                    iHighH1 = 180;
+                    iLowH2 = 0;
+                    iHighH2 = iH + rangeH;
+                    if(iHighH2 > 180){
+                        iHighH2 -= 180;
+                    }
+                }
+                else
+                {
+                    iLowH1 = iH - rangeH;
+                    iHighH1 = iH + rangeH;
+                    iLowH2 = iH;
+                    iHighH2 =iH;
+                }
+                cout << iH << " " << iLowH1 << " " << iHighH1 << " " << iLowH2 << " " << iHighH2 << endl;
+                
+                inRange(imgHSV1, Scalar(iLowH1, iS-rangeS, iV-rangeV), Scalar(iHighH1, iS+rangeS, iV+rangeV), mask0);
+                inRange(imgHSV2, Scalar(iLowH2, iS-rangeS, iV-rangeV), Scalar(iHighH2, iS+rangeS, iV+rangeV), mask1);
+                add(mask0, mask1, mask1);
+
+                Mat element = getStructuringElement(MORPH_RECT, Size(9, 9));
+                morphologyEx(mask1, mask2, MORPH_CLOSE, element); //闭操作
+
+                //-----------------------------------------------------------
+
+                vector<vector<Point>> contours;
+                vector<Vec4i> hierarchy;
+                findContours(mask2, contours, hierarchy, RETR_CCOMP, CHAIN_APPROX_SIMPLE); //查找轮廓
+
+                Point pt[512];  //存储连通区域个数
+                Moments moment; //矩
+                cout << "contours.size(): " << contours.size() << endl;
+                for (int i = 0; i < contours.size(); i++)
+                {
+                    double t = contourArea(contours.at(i));
+                    cout << "areaT: " << t << endl;
+                    if (10 > t)
+                        continue;
+                    Rect good_rect = boundingRect(contours.at(i));
+                    cout << "good_rect: " << good_rect.tl()+big_box.tl() << endl;
+                    rectangle(fix_img, Rect(good_rect.tl()+big_box.tl(),good_rect.br()+big_box.br()), Scalar(0, 0, 255), 2, 8, 0);
+                }
+                contours.clear();
+                hierarchy.clear();
+*/
                 String className = "total:" + to_string(indices.size()) + "  " + classNamesVec[classIds[midIndex]];
                 putText(fix_img, className.c_str(), midBox.tl(), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0), 2, 8);
 
@@ -247,14 +288,14 @@ void mainPC::ImageConsumer()
                 Tdata[7] = send_data.delta_angle_yaw.c[3];
                 cout << send_data.delta_x_pixel.d << endl;
                 last_delta_x = send_data.delta_x_pixel.d;
-                
+
                 Append_CRC8_Check_Sum(Tdata, 9);
                 wzSerialportPlus.send(Tdata, 9);
 
                 a.push_back((now::ms() - ms_start));
                 if (abs(send_data.delta_x_pixel.d) > 50)
                 {
-                    if(send_data.delta_x_pixel.d > 0)
+                    if (send_data.delta_x_pixel.d > 0)
                         b.push_back(30);
                     else
                         b.push_back(-30);

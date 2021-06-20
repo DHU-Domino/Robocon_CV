@@ -26,7 +26,7 @@ TCPServer tcpp;
 WzSerialportPlus wzSerialportPlus;
 
 extern mutex data_mt;
-extern Mat src, fix_img;
+extern Mat src, fix_img, res1;
 extern Json r;
 extern int autoAim;
 
@@ -107,6 +107,7 @@ void img2WebTask()
               {
                   data_mt.lock();
                   fix_img.copyTo(tmp_fiximg);
+                  //res1.copyTo(tmp_fiximg);
                   data_mt.unlock();
                   if (tmp_fiximg.empty() || tmp_fiximg.channels() != 3)
                       continue;
