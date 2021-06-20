@@ -28,6 +28,7 @@ WzSerialportPlus wzSerialportPlus;
 extern mutex data_mt;
 extern Mat src, fix_img;
 extern Json r;
+extern int autoAim;
 
 void sig_exit(int s)
 {
@@ -109,7 +110,7 @@ void img2WebTask()
                   data_mt.unlock();
                   if (tmp_fiximg.empty() || tmp_fiximg.channels() != 3)
                       continue;
-                  resize(tmp_fiximg, tmp_fiximg, Size(1280, 1080), 0, 0);
+                  resize(tmp_fiximg, tmp_fiximg, Size(1280/2, 1080/2), 0, 0);
                   cv::imencode(".jpg", tmp_fiximg, buf);
                   std::string image(buf.begin(), buf.end());
                   if (!res.send_msg("--boundary\r\n"
@@ -155,14 +156,18 @@ int main()
                 if (req.url() == "/json")
                 {
                     res.set_status(200);
-                    data_mt.lock();
-                    Json tmp_r;
-                    tmp_r = r;
-                    r["categories"].set_array();
-                    r["data"].set_array();
+                    if(autoAim != 0)
+                    {
+                        data_mt.lock();
+                        Json tmp_r;
+                        tmp_r = r;
+                        r["categories"].set_array();
+                        r["data"].set_array();
+                        
+                        data_mt.unlock();
+                        res.set_body(tmp_r.str().c_str());
+                    }
                     
-                    data_mt.unlock();
-                    res.set_body(tmp_r.str().data());
                 }
                 else
                 {

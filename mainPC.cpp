@@ -28,6 +28,7 @@ using namespace cv;
 std::mutex data_mt;
 Mat src, fix_img;
 Json r;
+int autoAim = 0;
 
 extern TCPServer tcpp;
 extern ProdCons_data pc_data[1];
@@ -114,8 +115,9 @@ void mainPC::ImageConsumer()
             classNamesVec.push_back(className);
         }
     }
-    int autoAim = 0;
+    
     int last_delta_x = 0;
+    int64_t ms_start = now::ms();
     while (1)
     {
         while (prdIndex - csmIndex == 0)
@@ -200,6 +202,35 @@ void mainPC::ImageConsumer()
             {
                 //cout << "distance: " << distance << " indices.size():" << indices.size() << " x:" << midBox.x << " y:" << midBox.y << endl;
                 rectangle(fix_img, midBox, Scalar(0, 0, 255), 2, 8, 0);
+                Point boxCenter(midBox.tl().x + midBox.width/2, midBox.tl().y + midBox.height/2);
+                circle(fix_img, boxCenter, 10, Scalar(255, 255, 255));
+
+                Mat imgHSV;
+                cvtColor(fix_img, imgHSV, COLOR_BGR2HSV);
+
+                double R = 100;
+                double angle = 30;
+                double h = R * cos(angle / 180 * 3.1415);
+                double r = R * sin(angle / 180 * 3.1415);
+
+                double H1 = imgHSV.at<Vec3b>(boxCenter.x, boxCenter.y)[0] * 2;
+                double S1 = imgHSV.at<Vec3b>(boxCenter.x, boxCenter.y)[1] / 255.0;
+                double V1 = imgHSV.at<Vec3b>(boxCenter.x, boxCenter.y)[2] / 255.0;
+                double x1 = r * V1 * S1 * cos(H1);
+                double y1 = r * V1 * S1 * sin(H1);
+                double z1 = h * (1 - V1);
+                
+                Point boxDelta(midBox.tl().x - midBox.width/2, midBox.tl().y + midBox.height/2);
+                circle(fix_img, boxDelta, 10, Scalar(255, 255, 255));
+                double H2 = imgHSV.at<Vec3b>(boxDelta.x, boxDelta.y)[0] * 2;
+                double S2 = imgHSV.at<Vec3b>(boxDelta.x, boxDelta.y)[1] / 255.0;
+                double V2 = imgHSV.at<Vec3b>(boxDelta.x, boxDelta.y)[2] / 255.0;
+                double x2 = r * V2 * S2 * cos(H2);
+                double y2 = r * V2 * S2 * sin(H2);
+                double z2 = h * (1 - V2);
+
+                cout << sqrt(pow(x1-x2,2)+pow(y1-y2,2)+pow(z1-z2,2)) << endl;
+
                 String className = "total:" + to_string(indices.size()) + "  " + classNamesVec[classIds[midIndex]];
                 putText(fix_img, className.c_str(), midBox.tl(), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0), 2, 8);
 
@@ -220,10 +251,13 @@ void mainPC::ImageConsumer()
                 Append_CRC8_Check_Sum(Tdata, 9);
                 wzSerialportPlus.send(Tdata, 9);
 
-                a.push_back(getTickCount() % 1000);
+                a.push_back((now::ms() - ms_start));
                 if (abs(send_data.delta_x_pixel.d) > 50)
                 {
-                    b.push_back(50);
+                    if(send_data.delta_x_pixel.d > 0)
+                        b.push_back(30);
+                    else
+                        b.push_back(-30);
                 }
                 else
                 {

@@ -20,6 +20,14 @@
         var y = [];
 
         var option = {
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: {
+                    type: 'cross'
+                },
+                backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                
+            },
             xAxis: {
                 type: 'category',
                 boundaryGap: false,
@@ -27,18 +35,20 @@
             },
             yAxis: {
                 boundaryGap: [0, '50%'],
-                type: 'value'
+                type: 'value',
+                min: function (value) {
+                    return -30;
+                },
+                max: function (value) {
+                    return 30;
+                }
             },
             series: [
                 {
                     name: 'delta_x',
                     type: 'line',
-                    smooth: true,
+                    smooth: false,
                     symbol: 'none',
-                    stack: 'a',
-                    areaStyle: {
-                        normal: {}
-                    },
                     data: y
                 }
             ]
@@ -50,9 +60,16 @@
             $.get('http://192.168.31.80/json').done(function (data) {
                 // 填入数据
                 data = jQuery.parseJSON(data);
-                x.push(data.categories);
-                y.push(data.data);
 
+                for (j = 0, len = data.categories.length; j < len; j++) {
+                    x.push(data.categories[j]);
+                    y.push(data.data[j]);
+                }
+                while(x[x.length-1] - x[0] > 15000)
+                {
+                    x.shift();
+                    y.shift();
+                }
                 myChart.setOption({
                     xAxis: {
                         data: x
