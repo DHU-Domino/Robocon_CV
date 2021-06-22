@@ -6,7 +6,7 @@ sec=1
 cnt=0
 name=Domino
 Thread=`ps -ef | grep $name | grep -v "grep"`
-cd /home/domino/OpenCV_web_test/build/
+cd /home/domino/robocon/build/
 make clean && make -j
 while [ 1 ]
 do
@@ -19,7 +19,7 @@ if [ $count -gt 1 ]; then
 else 
     echo "Starting $name..."
     
-    cd /home/domino/OpenCV_web_test/build/
+    cd /home/domino/robocon/build/
     bash -c "./$name;exec bash;"
     echo "$name has started!"		
     sleep $sec

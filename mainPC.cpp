@@ -1,4 +1,4 @@
-#include "mainPC.h"
+﻿#include "mainPC.h"
 
 #include "WzSerialportPlus.h"
 #include "CRC_Check.h"
@@ -74,13 +74,13 @@ void mainPC::ImageConsumer()
     categories.push_back(0);
     jsondata.push_back(0);
 
-    cv::dnn::Net net = cv::dnn::readNetFromDarknet("/home/domino/OpenCV_web_test/asset/yolov4-tiny-obj-rc.cfg",
-                                                   "/home/domino/OpenCV_web_test/asset/yolov4-tiny-obj-rc_1000.weights");
+    cv::dnn::Net net = cv::dnn::readNetFromDarknet("/home/domino/robocon/asset/yolov4-tiny-obj-rc.cfg",
+                                                   "/home/domino/robocon/asset/yolov4-tiny-obj-rc_1000.weights");
     net.setPreferableBackend(cv::dnn::Backend::DNN_BACKEND_DEFAULT);
     net.setPreferableTarget(cv::dnn::Target::DNN_TARGET_CPU);
     std::vector<String> outNames = net.getUnconnectedOutLayersNames();
     vector<string> classNamesVec;
-    ifstream classNamesFile("/home/domino/OpenCV_web_test/asset/obj-rc.names");
+    ifstream classNamesFile("/home/domino/robocon/asset/obj-rc.names");
     if (classNamesFile.is_open())
     {
         string className = "";

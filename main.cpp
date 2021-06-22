@@ -94,8 +94,8 @@ void img2WebTask()
               if (!res.send_header())
                   return;
 
-              cv::Mat tmp_fiximg = cv::imread("/home/domino/OpenCV_web_test/open.jpg");
-              cv::Mat tmp_src = cv::imread("/home/domino/OpenCV_web_test/open.jpg");
+              cv::Mat tmp_fiximg = cv::imread("/home/domino/robocon/open.jpg");
+              cv::Mat tmp_src = cv::imread("/home/domino/robocon/open.jpg");
               std::vector<uchar> buf;
 
               while (true)
@@ -120,7 +120,7 @@ void img2WebTask()
         .get("/", [](auto, auto res)
              {
                  std::string str;
-                 str = readFileIntoString("/home/domino/OpenCV_web_test/echart.html");
+                 str = readFileIntoString("/home/domino/robocon/echart.html");
                  res >> str;
              })
         .listen();

@@ -3,7 +3,7 @@ Description=for my robot
 After=network-online.target
 
 [Service]
-ExecStart=/home/domino/OpenCV_web_test/dog.sh
+ExecStart=/home/domino/robocon/dog.sh
 
 [Install]
 WantedBy=multi-user.target
