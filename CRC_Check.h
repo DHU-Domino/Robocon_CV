@@ -1,4 +1,4 @@
-#ifndef _CRC_CHECK_H_
+﻿#ifndef _CRC_CHECK_H_
 #define _CRC_CHECK_H_
 
 #include <iostream>

@@ -15,14 +15,14 @@ find_package(Threads)
 
 include_directories(
     ${PROJECT_SOURCE_DIR}
-    ${CURL_INCLUDE_DIR}
-    /home/domino/20210322/Downloads/Galaxy_1.2.1911.9122/Galaxy_camera/inc
+    "/home/domino/20210322/Downloads/Galaxy_1.2.1911.9122/Galaxy_camera/inc"
 )
 
-add_executable(Domino 
+add_executable(
+    ${PROJECT_NAME}
+
     main.cpp
     WzSerialportPlus.cpp
-    TCPServer.cpp
     CRC_Check.cpp
     video.cpp
     mainPC.cpp
@@ -30,13 +30,10 @@ add_executable(Domino
 
 target_link_libraries(
     ${PROJECT_NAME}
-
     ${OpenCV_LIBS}
-    ${CURL_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
-
+    -lgxiapi
     -lco
     -ldl
-    -lgxiapi
 )
 

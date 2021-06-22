@@ -24,7 +24,6 @@ void _callback(int client, Server_base::Functions &paths_f)
 
 namespace httpp
 {
-
     class Server : public Server_base
     {
     public:
@@ -49,7 +48,6 @@ namespace httpp
             return *this;
         }
     };
-
 };
 
 #endif // SERVER_H

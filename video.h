@@ -42,7 +42,7 @@ private:
     static int64_t      m_nPayLoadSize;
     static int64_t      m_nPixelColorFilter;    ///< Bayer格式
     static int64_t      m_nPixelFormat;
-    static Mat img;
+    static Mat src_img;
 
     static void GX_STDC OnFrameCallbackFun(GX_FRAME_CALLBACK_PARAM* pFrame);
 };

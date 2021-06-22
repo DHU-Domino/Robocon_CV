@@ -1,6 +1,3 @@
-<!--
-    THIS EXAMPLE WAS DOWNLOADED FROM https://echarts.apache.org/examples/zh/editor.html?c=doc-example/tutorial-dynamic-data
--->
 <!DOCTYPE html>
 <html style="height: 100%">
 
@@ -9,8 +6,9 @@
 </head>
 
 <body style="height: 100%; margin: 0">
+    <h1>CAMERA STREAMING</h1>
+    <img src='http://192.168.31.80:5555/img' />
     <div id="container" style="height: 100%"></div>
-
     <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
     <script type="text/javascript">
@@ -26,7 +24,7 @@
                     type: 'cross'
                 },
                 backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                
+
             },
             xAxis: {
                 type: 'category',
@@ -37,10 +35,10 @@
                 boundaryGap: [0, '50%'],
                 type: 'value',
                 min: function (value) {
-                    return -30;
+                    return -45;
                 },
                 max: function (value) {
-                    return 30;
+                    return 45;
                 }
             },
             series: [
@@ -57,7 +55,7 @@
 
         setInterval(function () {
 
-            $.get('http://192.168.31.80/json').done(function (data) {
+            $.get('http://192.168.31.80/aim.json').done(function (data) {
                 // 填入数据
                 data = jQuery.parseJSON(data);
 
@@ -65,8 +63,7 @@
                     x.push(data.categories[j]);
                     y.push(data.data[j]);
                 }
-                while(x[x.length-1] - x[0] > 15000)
-                {
+                while (x[x.length - 1] - x[0] > 15000) {
                     x.shift();
                     y.shift();
                 }
@@ -81,8 +78,6 @@
                 });
             });
         }, 50);
-
-
     </script>
 </body>
 
