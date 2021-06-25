@@ -26,6 +26,7 @@ add_executable(
     CRC_Check.cpp
     video.cpp
     mainPC.cpp
+    kalman.cpp
 )
 
 target_link_libraries(

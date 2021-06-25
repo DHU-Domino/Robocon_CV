@@ -5,17 +5,41 @@
     <meta charset="utf-8">
 </head>
 
+<style>
+    #left {
+        width: 640px;
+        height: 540px;
+        background: #ccffff;
+        float: left;
+    }
+
+    #right {
+        height: 540px;
+        background: #ffcccc;
+        margin-left: 640px;
+    }
+</style>
+
+<script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+
 <body style="height: 100%; margin: 0">
     <h1>CAMERA STREAMING</h1>
-    <img src='http://192.168.31.80:5555/img' />
-    <div id="container" style="height: 100%"></div>
-    <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+
+    <aside id="left"><img src='http://192.168.31.80:5555/img' /></aside>
+    <section id="right">
+        <div id="container" style="height: 100%;width: 600px;"></div>
+    </section>
+
+
     <script type="text/javascript">
         var dom = document.getElementById("container");
         var myChart = echarts.init(dom, 'dark');
         var x = [];
         var y = [];
+        var fix_delta_x = [];
+        var world_d_x = [];
+        var world_d_y = [];
 
         var option = {
             tooltip: {
@@ -26,6 +50,14 @@
                 backgroundColor: 'rgba(255, 255, 255, 0.8)',
 
             },
+            legend: {
+                data: ['delta_x', 'fix_delta_x', 'world_delta_x', 'world_delta_y',]
+            },
+            toolbox: {
+                feature: {
+                    saveAsImage: {}
+                }
+            },
             xAxis: {
                 type: 'category',
                 boundaryGap: false,
@@ -34,20 +66,35 @@
             yAxis: {
                 boundaryGap: [0, '50%'],
                 type: 'value',
-                min: function (value) {
-                    return -45;
-                },
-                max: function (value) {
-                    return 45;
-                }
             },
             series: [
                 {
                     name: 'delta_x',
                     type: 'line',
-                    smooth: false,
-                    symbol: 'none',
-                    data: y
+                    data: y,
+                    label: {
+                        show: true,
+                        position: 'top',
+                    },
+                },
+                {
+                    name: 'fix_delta_x',
+                    type: 'line',
+                    data: fix_delta_x,
+                    label: {
+                        show: true,
+                        position: 'top',
+                    },
+                },
+                {
+                    name: 'world_delta_x',
+                    type: 'line',
+                    data: world_d_x
+                },
+                {
+                    name: 'world_delta_y',
+                    type: 'line',
+                    data: world_d_y
                 }
             ]
         };
@@ -62,10 +109,18 @@
                 for (j = 0, len = data.categories.length; j < len; j++) {
                     x.push(data.categories[j]);
                     y.push(data.data[j]);
+                    fix_delta_x.push(data.fixdata[j]);
+                }
+                for (j = 0, len = data.world_delta_x.length; j < len; j++) {
+                    world_d_x.push(data.world_delta_x[j]);
+                    world_d_y.push(data.world_delta_y[j]);
                 }
                 while (x[x.length - 1] - x[0] > 15000) {
                     x.shift();
                     y.shift();
+                    fix_delta_x.shift();
+                    world_d_x.shift();
+                    world_d_y.shift();
                 }
                 myChart.setOption({
                     xAxis: {
@@ -74,6 +129,16 @@
                     series: [{
                         name: 'delta_x',
                         data: y
+                    },
+                    {
+                        name: 'fix_delta_x',
+                        data: fix_delta_x
+                    }, {
+                        name: 'world_delta_x',
+                        data: world_d_x
+                    }, {
+                        name: 'world_delta_y',
+                        data: world_d_y
                     }]
                 });
             });

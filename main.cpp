@@ -146,16 +146,19 @@ int main()
             {
                 if (req.url() == "/aim.json")
                 {
-                    
+
                     res.set_status(200);
                     res.add_header("Access-Control-Allow-Origin", "*");
-                    if (autoAim != 0)
+                    //if (autoAim != 0)
                     {
                         data_mt.lock();
                         Json tmp_r;
                         tmp_r = r;
                         r["categories"].set_array();
                         r["data"].set_array();
+                        r["world_delta_x"].set_array();
+                        r["world_delta_y"].set_array();
+                        r["fixdata"].set_array();
 
                         data_mt.unlock();
                         res.set_body(tmp_r.str().c_str());

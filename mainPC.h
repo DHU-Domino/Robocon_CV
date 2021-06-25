@@ -1,5 +1,6 @@
 #pragma once
 #include "video.h"
+#include "kalman.h"
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/opencv.hpp>
@@ -49,6 +50,7 @@ public:
     
 private:
     video a;
+    kalman kal;
     int ROI[4];
     int ExposeTime;
     double AdjustPlus;
