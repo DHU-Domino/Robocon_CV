@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html style="height: 100%">
+
+<head>
+    <meta charset="utf-8">
+</head>
+
+<script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+
+<body style="height: 100%; margin: 0">
+    <div id="container" style="height: 100%"></div>
+    <script type="text/javascript">
+        var dom = document.getElementById("container");
+        var myChart = echarts.init(dom, 'dark');
+        var x = [];
+        var world_d_x = [];
+        var world_d_y = [];
+
+        var option = {
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: {
+                    type: 'cross'
+                },
+                backgroundColor: 'rgba(255, 255, 255, 0.8)',
+
+            },
+            legend: {
+                data: ['world_delta_x', 'world_delta_y',]
+            },
+            toolbox: {
+                feature: {
+                    saveAsImage: {}
+                }
+            },
+            xAxis: {
+                type: 'category',
+                data: x
+            },
+            yAxis: {
+                boundaryGap: [0, '50%'],
+                type: 'value',
+            },
+            series: [
+                {
+                    name: 'world_delta_x',
+                    type: 'line',
+                    data: world_d_x
+                },
+                {
+                    name: 'world_delta_y',
+                    type: 'line',
+                    data: world_d_y
+                }
+            ]
+        };
+        myChart.setOption(option);
+
+        setInterval(function () {
+
+            $.get('http://192.168.31.80/chassis.json').done(function (data) {
+                // 填入数据
+                data = jQuery.parseJSON(data);
+                for (j = 0, len = data.world_delta_x.length; j < len; j++) {
+                    x.push(data.categories[j]);
+                    world_d_x.push(data.world_delta_x[j]);
+                    world_d_y.push(data.world_delta_y[j]);
+                }
+                while (x[x.length - 1] - x[0] > 15000) {
+                    x.shift();
+                    world_d_x.shift();
+                    world_d_y.shift();
+                }
+                myChart.setOption({
+                    xAxis: {
+                        data: x
+                    },
+                    series: [{
+                        name: 'world_delta_x',
+                        data: world_d_x
+                    }, {
+                        name: 'world_delta_y',
+                        data: world_d_y
+                    }]
+                });
+            });
+        }, 50);
+    </script>
+</body>
+
+</html>

@@ -24,7 +24,7 @@ mutex toJsonLock, newSerialDataLock;
 
 extern mutex data_mt;
 extern Mat src, fix_img, res1;
-extern Json r;
+extern Json aim, chassis;
 extern int autoAim;
 
 void sig_exit(int s)
@@ -117,10 +117,22 @@ void img2WebTask()
                       return;
               }
           })
+        .get("/aim", [](auto, auto res)
+             {
+                 std::string str;
+                 str = readFileIntoString("/home/domino/robocon/aim.html");
+                 res >> str;
+             })
+        .get("/chassis", [](auto, auto res)
+             {
+                 std::string str;
+                 str = readFileIntoString("/home/domino/robocon/chassis.html");
+                 res >> str;
+             })
         .get("/", [](auto, auto res)
              {
                  std::string str;
-                 str = readFileIntoString("/home/domino/robocon/echart.html");
+                 str = readFileIntoString("/home/domino/robocon/img.html");
                  res >> str;
              })
         .listen();
@@ -149,24 +161,30 @@ int main()
 
                     res.set_status(200);
                     res.add_header("Access-Control-Allow-Origin", "*");
-                    //if (autoAim != 0)
+                    if (autoAim != 0)
                     {
                         data_mt.lock();
                         Json tmp_r;
-                        tmp_r = r;
-                        r["categories"].set_array();
-                        r["data"].set_array();
-                        r["world_delta_x"].set_array();
-                        r["world_delta_y"].set_array();
-                        r["fixdata"].set_array();
-
+                        tmp_r = aim;
+                        aim["categories"].set_array();
+                        aim["delta_x"].set_array();
+                        aim["fix_delta_x"].set_array();
                         data_mt.unlock();
                         res.set_body(tmp_r.str().c_str());
                     }
                 }
-                else if (req.url() == "/serial.json")
+                else if (req.url() == "/chassis.json")
                 {
                     res.set_status(200);
+                    res.add_header("Access-Control-Allow-Origin", "*");
+                    data_mt.lock();
+                    Json tmp_r;
+                    tmp_r = chassis;
+                    chassis["categories"].set_array();
+                    chassis["world_delta_x"].set_array();
+                    chassis["world_delta_y"].set_array();
+                    data_mt.unlock();
+                    res.set_body(tmp_r.str().c_str());
                 }
                 else
                     res.set_status(404);

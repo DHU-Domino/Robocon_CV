@@ -8,7 +8,7 @@ using namespace cv;
 
 std::mutex data_mt, scrLock;
 Mat src, fix_img;
-Json r;
+Json aim, chassis;
 int autoAim = 0;
 
 extern WzSerialportPlus wzSerialportPlus;
@@ -68,15 +68,13 @@ void mainPC::ImageProducer()
 
 void mainPC::ImageConsumer()
 {
-    auto categories = r.add_array("categories", 20);
-    auto json_data = r.add_array("data", 20);
-    auto json_worldx_data = r.add_array("world_delta_x", 20);
-    auto json_worldy_data = r.add_array("world_delta_y", 20);
-    auto jsonfixdata = r.add_array("fixdata", 20);
+    auto aim_categories = aim.add_array("categories", 20);
+    auto aim_data = aim.add_array("delta_x", 20);
+    auto aim_fixdata = aim.add_array("fix_delta_x", 20);
 
-    categories.push_back(0);
-    json_data.push_back(0);
-    jsonfixdata.push_back(0);
+    auto chassis_categories = chassis.add_array("categories", 20);
+    auto chassis_worldx_data = chassis.add_array("world_delta_x", 20);
+    auto chassis_worldy_data = chassis.add_array("world_delta_y", 20);
 
     cv::dnn::Net net = cv::dnn::readNetFromDarknet("/home/domino/robocon/asset/yolov4-tiny-obj-rc.cfg",
                                                    //"/home/domino/robocon/asset/5.10/yolov4-tiny-obj-rc_1000.weights");
@@ -156,8 +154,8 @@ void mainPC::ImageConsumer()
             int stm32Time = newSerialData.tr_data_systerm_time.d;
             float world_delta_x = newSerialData.tr_data_act_pos_sys_x.d - newSerialData.world_x.d;
             float world_delta_y = newSerialData.tr_data_act_pos_sys_y.d - newSerialData.world_y.d;
-
             newSerialDataLock.unlock();
+
             if (autoAim != 0)
                 cout << "autoAim: " << autoAim << endl;
             else
@@ -258,27 +256,30 @@ void mainPC::ImageConsumer()
 
                 last_delta_x = send_data.delta_x_pixel.d;
 
+                aim_categories.push_back(now::ms());
                 if (int(send_data.delta_x_pixel.d) > 35)
-                    json_data.push_back(35);
+                    aim_data.push_back(35);
                 else if (int(send_data.delta_x_pixel.d) < -35)
-                    json_data.push_back(-35);
+                    aim_data.push_back(-35);
                 else
-                    json_data.push_back(int(send_data.delta_x_pixel.d));
+                    aim_data.push_back(int(send_data.delta_x_pixel.d));
                 int t_x = int(send_data.delta_x_pixel.d);
                 kal.kalmanFilter(t_x);
-                jsonfixdata.push_back(t_x);
+                aim_fixdata.push_back(t_x);
             }
-            categories.push_back(now::ms());
-            if (int(world_delta_x) > 400 || int(world_delta_y) > 400)
+
+            chassis_categories.push_back(now::ms());
+            if (int(world_delta_x) > 200 || int(world_delta_y) > 200)
             {
-                if (int(world_delta_x) > 400)
-                    json_worldx_data.push_back(100);
-                else if (int(world_delta_y) > 400)
-                    json_worldy_data.push_back(100);
+                if (int(world_delta_x) > 200)
+                    chassis_worldx_data.push_back(200);
+                else if (int(world_delta_y) > 200)
+                    chassis_worldy_data.push_back(200);
             }
-            else{
-                json_worldx_data.push_back(int(world_delta_x));
-                json_worldy_data.push_back(int(world_delta_y));
+            else
+            {
+                chassis_worldx_data.push_back(int(world_delta_x));
+                chassis_worldy_data.push_back(int(world_delta_y));
             }
 
             float fps = getTickFrequency() / (getTickCount() - start);
