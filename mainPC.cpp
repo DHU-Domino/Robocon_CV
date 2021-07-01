@@ -77,8 +77,8 @@ void mainPC::ImageConsumer()
     auto chassis_worldy_data = chassis.add_array("world_delta_y", 20);
 
     cv::dnn::Net net = cv::dnn::readNetFromDarknet("/home/domino/robocon/asset/yolov4-tiny-obj-rc.cfg",
-                                                   //"/home/domino/robocon/asset/5.10/yolov4-tiny-obj-rc_1000.weights");
-                                                   "/home/domino/robocon/asset/6.24/yolov4-tiny-obj-rc_2000.weights");
+                                                   "/home/domino/robocon/asset/7.1/yolov4-tiny-obj-rc_best.weights");
+                                                   //"/home/domino/robocon/asset/6.24/yolov4-tiny-obj-rc_2000.weights");
     net.setPreferableBackend(cv::dnn::Backend::DNN_BACKEND_DEFAULT);
     net.setPreferableTarget(cv::dnn::Target::DNN_TARGET_CPU);
     std::vector<String> outNames = net.getUnconnectedOutLayersNames();
@@ -146,11 +146,11 @@ void mainPC::ImageConsumer()
             cv::dnn::NMSBoxes(boxes, confidences, 0.5, 0.2, indices);
             Rect midBox(1280 / 2 - 1, 1080 / 2 - 1, 2, 2);
             int distance = 1280;
-            int midIndex = 0;
+            int midIndex = -1;
 
-            //autoAim = 1;
+            autoAim = 8;
             newSerialDataLock.lock();
-            autoAim = newSerialData.isAutoAim.d;
+            //autoAim = newSerialData.isAutoAim.d;
             int stm32Time = newSerialData.tr_data_systerm_time.d;
             float world_delta_x = newSerialData.tr_data_act_pos_sys_x.d - newSerialData.world_x.d;
             float world_delta_y = newSerialData.tr_data_act_pos_sys_y.d - newSerialData.world_y.d;
@@ -174,9 +174,10 @@ void mainPC::ImageConsumer()
                     rb = 'b';
                 else
                     rb = ' ';
-                if (autoAim > 5) //换算
-                    autoAim -= 5;
-                switch (autoAim)
+                int t_autoAim = autoAim;
+                if (t_autoAim > 5) //换算
+                    t_autoAim -= 5;
+                switch (t_autoAim)
                 {
                 case 1:
                     which_one = '1';
@@ -199,12 +200,14 @@ void mainPC::ImageConsumer()
                     classNamesVec[classIds[idx]][0] == rb &&
                     classNamesVec[classIds[idx]][1] == which_one)
                 {
+                    cout << rb << " " << which_one << endl;
                     distance = delta_x;
                     midBox = box;
                     midIndex = idx;
+                    break;
                 }
             }
-            if (indices.size() != 0 && autoAim != 0)
+            if (indices.size() != 0 && autoAim != 0 && midIndex != -1)
             {
                 Rect big_box(midBox.tl() - Point(15, 10), midBox.br() + Point(15, 10));
                 rectangle(fix_img, midBox, Scalar(0, 0, 255), 2);
