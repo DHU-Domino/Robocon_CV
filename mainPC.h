@@ -6,6 +6,7 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/dnn.hpp>
 
+#include <list>
 #include <ctime>
 #include <mutex>
 #include <thread>

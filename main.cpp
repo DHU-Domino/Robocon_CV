@@ -71,6 +71,7 @@ void serialTask()
                 newSerialDataLock.lock();
                 newSerialData = send_data;
                 newSerialDataLock.unlock();
+                cout << "receive " << (int)send_data.isAutoAim.d << endl;
             }
             old_t = send_data.tr_data_systerm_time.d;
         });

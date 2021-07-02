@@ -96,6 +96,7 @@ void mainPC::ImageProducer()
 
 void mainPC::ImageConsumer()
 {
+    list<int> xList;
     auto aim_categories = aim.add_array("categories", 20);
     auto aim_data = aim.add_array("delta_x", 20);
     auto aim_fixdata = aim.add_array("fix_delta_x", 20);
@@ -105,8 +106,8 @@ void mainPC::ImageConsumer()
     auto chassis_worldy_data = chassis.add_array("world_delta_y", 20);
 
     cv::dnn::Net net = cv::dnn::readNetFromDarknet("/home/domino/robocon/asset/yolov4-tiny-obj-rc.cfg",
-                                                   "/home/domino/robocon/asset/7.2/yolov4-tiny-obj-rc_best.weights");
-    //"/home/domino/robocon/asset/6.24/yolov4-tiny-obj-rc_2000.weights");
+                                                   //"/home/domino/robocon/asset/7.2/yolov4-tiny-obj-rc_best.weights");
+                                                   "/home/domino/robocon/asset/6.24/yolov4-tiny-obj-rc_2000.weights");
     net.setPreferableBackend(cv::dnn::Backend::DNN_BACKEND_DEFAULT);
     net.setPreferableTarget(cv::dnn::Target::DNN_TARGET_CPU);
     std::vector<String> outNames = net.getUnconnectedOutLayersNames();
@@ -123,52 +124,21 @@ void mainPC::ImageConsumer()
     }
 
     int last_delta_x = 0;
-    RotatedRect _res_last;
-    int _lost_cnt = 0;
     while (1)
     {
         while (prdIndex - csmIndex == 0)
             ;
         data_mt.lock();
 
-        Mat src_copy, src_roi;
+        Mat src_copy;
         Rect _dect_rect;
         src.copyTo(fix_img);
         src.copyTo(src_copy);
-        if (_lost_cnt < 2)
-            _res_last.size = Size2d(int(80 * 1.2), int((80 * 1.2) * 1.25));
-        else if (_lost_cnt >= 2)
-            _res_last = RotatedRect();
-        //_res_last = RotatedRect();
-        if (_res_last.center.x == 0 || _res_last.center.y == 0)
-        {
-            src_roi = src_copy;
-            _dect_rect = Rect(0, 0, src_copy.cols, src_copy.rows);
-        }
-        else
-        {
-            Rect t = rangeLimitRect(_res_last.boundingRect());
-            rectangle(fix_img, t, Scalar(255, 255, 255), 1);
-            String cntName = "cnt:" + to_string(_lost_cnt);
-            putText(fix_img, cntName.c_str(), t.tl(), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0), 2, 8);
-            
-            Mat white(1024, 1280, CV_8UC3, cv::Scalar(255, 255, 255));
-            for(int i = t.x; i<= t.x+t.width; ++i)
-            {
-                for(int j = t.y; j<= t.y+t.height; ++j)
-                {
-                    white.at<Vec3b>(j,i) = src_copy.at<Vec3b>(j,i);
-                }
-            }
-            //src_copy(t).copyTo(src_roi);
-            white.copyTo(src_roi);
-            white.copyTo(fix_img);
-        }
 
         int64 start = getTickCount();
         try
         {
-            Mat inputBlob = cv::dnn::blobFromImage(src_roi, 1 / 255.F, Size(416, 416), Scalar(), true, false);
+            Mat inputBlob = cv::dnn::blobFromImage(src_copy, 1 / 255.F, Size(416, 416), Scalar(), true, false);
             net.setInput(inputBlob);
             // 检测
             std::vector<Mat> outs;
@@ -188,10 +158,10 @@ void mainPC::ImageConsumer()
                     minMaxLoc(scores, 0, &confidence, 0, &classIdPoint);
                     if (confidence > 0.5)
                     {
-                        int centerX = (int)(data[0] * src_roi.cols);
-                        int centerY = (int)(data[1] * src_roi.rows);
-                        int width = (int)(data[2] * src_roi.cols);
-                        int height = (int)(data[3] * src_roi.rows);
+                        int centerX = (int)(data[0] * fix_img.cols);
+                        int centerY = (int)(data[1] * fix_img.rows);
+                        int width = (int)(data[2] * fix_img.cols);
+                        int height = (int)(data[3] * fix_img.rows);
                         int left = centerX - width / 2;
                         int top = centerY - height / 2;
 
@@ -208,16 +178,16 @@ void mainPC::ImageConsumer()
             int distance = 1280;
             int midIndex = -1;
 
-            autoAim = 3;
+            //autoAim = 3;
             newSerialDataLock.lock();
-            //autoAim = newSerialData.isAutoAim.d;
+            autoAim = newSerialData.isAutoAim.d;
             int stm32Time = newSerialData.tr_data_systerm_time.d;
             float world_delta_x = newSerialData.tr_data_act_pos_sys_x.d - newSerialData.world_x.d;
             float world_delta_y = newSerialData.tr_data_act_pos_sys_y.d - newSerialData.world_y.d;
             newSerialDataLock.unlock();
 
             if (autoAim != 0)
-                cout << "autoAim: " << autoAim << " _lost_cnt: " << _lost_cnt << endl;
+                cout << "autoAim: " << autoAim << endl;
             else
                 cout << "autoAim: close\n";
 
@@ -269,10 +239,6 @@ void mainPC::ImageConsumer()
             }
             if (indices.size() != 0 && autoAim != 0 && midIndex != -1)
             {
-                _res_last = RotatedRect(rangeLimitPoint(midBox.tl()),
-                                        rangeLimitPoint(midBox.tl() + Point(midBox.width, 0)),
-                                        rangeLimitPoint(midBox.br()));
-                _lost_cnt = 0;
                 Rect big_box(rangeLimitPoint(midBox.tl() - Point(15, 10)),
                              rangeLimitPoint(midBox.br() + Point(15, 10)));
                 rectangle(fix_img, midBox, Scalar(0, 0, 255), 2);
@@ -303,9 +269,10 @@ void mainPC::ImageConsumer()
                     }
                 }
 
-                Point ans = Point(maxCoor.x + big_box.x, maxCoor.y + big_box.y);
-                circle(fix_img, ans, 3, Scalar(255, 255, 255), 2);
-
+                Point ans1 = rangeLimitPoint(Point(maxCoor.x + big_box.x, maxCoor.y + big_box.y));
+                circle(fix_img, ans1, 3, Scalar(255, 255, 255), 1);
+                Point ans = rangeLimitPoint(Point(midBox.x + midBox.width / 2, midBox.y + midBox.height / 2));
+                circle(fix_img, ans - Point(0, 30), 3, Scalar(255, 255, 0), 1);
                 String className = "total:" + to_string(indices.size()) + "  " + classNamesVec[classIds[midIndex]];
                 putText(fix_img, className.c_str(), midBox.tl(), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0), 2, 8);
 
@@ -324,20 +291,30 @@ void mainPC::ImageConsumer()
 
                 last_delta_x = send_data.delta_x_pixel.d;
 
+                while (xList.size() > 10)
+                    xList.pop_front();
+                xList.push_back(last_delta_x);
+                /*
+                int avg = 0;
+                for(int i = xList.begin(); i< xList.end(); ++i){
+                    avg += xList[i];
+                }
+                avg /= xList.size();
+                if (abs(avg - xList.back()) < 150)
+                {
+
+                }
+                */
                 aim_categories.push_back(now::ms());
-                if (int(send_data.delta_x_pixel.d) > 35)
+                if (int(last_delta_x) > 35)
                     aim_data.push_back(35);
-                else if (int(send_data.delta_x_pixel.d) < -35)
+                else if (int(last_delta_x) < -35)
                     aim_data.push_back(-35);
                 else
-                    aim_data.push_back(int(send_data.delta_x_pixel.d));
-                int t_x = int(send_data.delta_x_pixel.d);
+                    aim_data.push_back(int(last_delta_x));
+                int t_x = last_delta_x;
                 kal.kalmanFilter(t_x);
                 aim_fixdata.push_back(t_x);
-            }
-            else
-            {
-                ++_lost_cnt;
             }
 
             chassis_categories.push_back(now::ms());
