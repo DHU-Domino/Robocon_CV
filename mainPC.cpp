@@ -25,6 +25,34 @@ Point getCenterPoint(Rect rect)
     cpt.y = rect.y + cvRound(rect.height / 2.0);
     return cpt;
 }
+Point rangeLimitPoint(Point p)
+{
+    if (p.x < 0)
+        p.x = 0;
+    if (p.y < 0)
+        p.y = 0;
+    if (p.x > 1280)
+        p.x = 1280;
+    if (p.y > 1024)
+        p.y = 1024;
+    return p;
+}
+Rect rangeLimitRect(Rect r)
+{
+    if (r.x < 0)
+        r.x = 0;
+    if (r.y < 0)
+        r.y = 0;
+    if (r.x > 1279)
+        r.x = 1279;
+    if (r.y > 1023)
+        r.y = 1023;
+    if (r.x + r.width > 1280)
+        r.width = 1280 - r.x;
+    if (r.y + r.height > 1024)
+        r.height = 1024 - r.y;
+    return r;
+}
 
 mainPC::mainPC(int *setting)
 {
@@ -77,8 +105,8 @@ void mainPC::ImageConsumer()
     auto chassis_worldy_data = chassis.add_array("world_delta_y", 20);
 
     cv::dnn::Net net = cv::dnn::readNetFromDarknet("/home/domino/robocon/asset/yolov4-tiny-obj-rc.cfg",
-                                                   "/home/domino/robocon/asset/7.1/yolov4-tiny-obj-rc_best.weights");
-                                                   //"/home/domino/robocon/asset/6.24/yolov4-tiny-obj-rc_2000.weights");
+                                                   "/home/domino/robocon/asset/7.2/yolov4-tiny-obj-rc_best.weights");
+    //"/home/domino/robocon/asset/6.24/yolov4-tiny-obj-rc_2000.weights");
     net.setPreferableBackend(cv::dnn::Backend::DNN_BACKEND_DEFAULT);
     net.setPreferableTarget(cv::dnn::Target::DNN_TARGET_CPU);
     std::vector<String> outNames = net.getUnconnectedOutLayersNames();
@@ -95,20 +123,52 @@ void mainPC::ImageConsumer()
     }
 
     int last_delta_x = 0;
+    RotatedRect _res_last;
+    int _lost_cnt = 0;
     while (1)
     {
         while (prdIndex - csmIndex == 0)
             ;
         data_mt.lock();
 
-        Mat src_copy;
+        Mat src_copy, src_roi;
+        Rect _dect_rect;
         src.copyTo(fix_img);
         src.copyTo(src_copy);
+        if (_lost_cnt < 2)
+            _res_last.size = Size2d(int(80 * 1.2), int((80 * 1.2) * 1.25));
+        else if (_lost_cnt >= 2)
+            _res_last = RotatedRect();
+        //_res_last = RotatedRect();
+        if (_res_last.center.x == 0 || _res_last.center.y == 0)
+        {
+            src_roi = src_copy;
+            _dect_rect = Rect(0, 0, src_copy.cols, src_copy.rows);
+        }
+        else
+        {
+            Rect t = rangeLimitRect(_res_last.boundingRect());
+            rectangle(fix_img, t, Scalar(255, 255, 255), 1);
+            String cntName = "cnt:" + to_string(_lost_cnt);
+            putText(fix_img, cntName.c_str(), t.tl(), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0), 2, 8);
+            
+            Mat white(1024, 1280, CV_8UC3, cv::Scalar(255, 255, 255));
+            for(int i = t.x; i<= t.x+t.width; ++i)
+            {
+                for(int j = t.y; j<= t.y+t.height; ++j)
+                {
+                    white.at<Vec3b>(j,i) = src_copy.at<Vec3b>(j,i);
+                }
+            }
+            //src_copy(t).copyTo(src_roi);
+            white.copyTo(src_roi);
+            white.copyTo(fix_img);
+        }
 
         int64 start = getTickCount();
         try
         {
-            Mat inputBlob = cv::dnn::blobFromImage(fix_img, 1 / 255.F, Size(416, 416), Scalar(), true, false);
+            Mat inputBlob = cv::dnn::blobFromImage(src_roi, 1 / 255.F, Size(416, 416), Scalar(), true, false);
             net.setInput(inputBlob);
             // 检测
             std::vector<Mat> outs;
@@ -128,10 +188,10 @@ void mainPC::ImageConsumer()
                     minMaxLoc(scores, 0, &confidence, 0, &classIdPoint);
                     if (confidence > 0.5)
                     {
-                        int centerX = (int)(data[0] * fix_img.cols);
-                        int centerY = (int)(data[1] * fix_img.rows);
-                        int width = (int)(data[2] * fix_img.cols);
-                        int height = (int)(data[3] * fix_img.rows);
+                        int centerX = (int)(data[0] * src_roi.cols);
+                        int centerY = (int)(data[1] * src_roi.rows);
+                        int width = (int)(data[2] * src_roi.cols);
+                        int height = (int)(data[3] * src_roi.rows);
                         int left = centerX - width / 2;
                         int top = centerY - height / 2;
 
@@ -148,7 +208,7 @@ void mainPC::ImageConsumer()
             int distance = 1280;
             int midIndex = -1;
 
-            autoAim = 8;
+            autoAim = 3;
             newSerialDataLock.lock();
             //autoAim = newSerialData.isAutoAim.d;
             int stm32Time = newSerialData.tr_data_systerm_time.d;
@@ -157,7 +217,7 @@ void mainPC::ImageConsumer()
             newSerialDataLock.unlock();
 
             if (autoAim != 0)
-                cout << "autoAim: " << autoAim << endl;
+                cout << "autoAim: " << autoAim << " _lost_cnt: " << _lost_cnt << endl;
             else
                 cout << "autoAim: close\n";
 
@@ -209,7 +269,12 @@ void mainPC::ImageConsumer()
             }
             if (indices.size() != 0 && autoAim != 0 && midIndex != -1)
             {
-                Rect big_box(midBox.tl() - Point(15, 10), midBox.br() + Point(15, 10));
+                _res_last = RotatedRect(rangeLimitPoint(midBox.tl()),
+                                        rangeLimitPoint(midBox.tl() + Point(midBox.width, 0)),
+                                        rangeLimitPoint(midBox.br()));
+                _lost_cnt = 0;
+                Rect big_box(rangeLimitPoint(midBox.tl() - Point(15, 10)),
+                             rangeLimitPoint(midBox.br() + Point(15, 10)));
                 rectangle(fix_img, midBox, Scalar(0, 0, 255), 2);
                 rectangle(fix_img, big_box, Scalar(255, 255, 255), 2);
 
@@ -269,6 +334,10 @@ void mainPC::ImageConsumer()
                 int t_x = int(send_data.delta_x_pixel.d);
                 kal.kalmanFilter(t_x);
                 aim_fixdata.push_back(t_x);
+            }
+            else
+            {
+                ++_lost_cnt;
             }
 
             chassis_categories.push_back(now::ms());
