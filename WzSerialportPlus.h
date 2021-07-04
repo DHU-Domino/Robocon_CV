@@ -81,7 +81,7 @@ typedef struct
     float2uchar tr_data_act_pos_sys_w; //5
 
     int8uchar isAutoAim;         //6
-    int8uchar aim_which_bucket;  //7
+    int8uchar aim_posi;  //7
     float2uchar world_x;         //11
     float2uchar world_y;         //15
     float2uchar world_angle_yaw; //19

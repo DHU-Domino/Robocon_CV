@@ -9,7 +9,7 @@ using namespace cv;
 std::mutex data_mt, scrLock;
 Mat src, fix_img;
 Json aim, chassis;
-int autoAim = 0;
+int autoAim = 0, aimPosi = 1;
 
 extern WzSerialportPlus wzSerialportPlus;
 extern SendData newSerialData;
@@ -94,6 +94,35 @@ void mainPC::ImageProducer()
     }
 }
 
+Point getMoments(Mat t, Rect r)
+{
+    vector<vector<Point>> contours;
+    vector<Vec4i> hierarchy;
+    Mat tmp_src;
+    cvtColor(t(r), tmp_src, COLOR_BGR2GRAY);
+    findContours(tmp_src, contours, hierarchy, RETR_CCOMP, CHAIN_APPROX_SIMPLE); //查找轮廓
+
+    Point pt[512];  //存储连通区域个数
+    Moments moment; //矩
+    int maxArea = -1;
+    Point maxCoor;
+    for (int i = 0; i < contours.size(); ++i) //读取每一个轮廓求取重心
+    {
+
+        double t = contourArea(contours.at(i));
+        if (maxArea < t)
+        {
+            maxArea = t;
+            Mat temp(contours.at(i));
+            moment = moments(temp, false);
+            maxCoor.x = cvRound(moment.m10 / moment.m00);
+            maxCoor.y = cvRound(moment.m01 / moment.m00);
+        }
+    }
+    return rangeLimitPoint(Point(maxCoor.x + r.x, maxCoor.y + r.y));
+    ;
+}
+
 void mainPC::ImageConsumer()
 {
     list<int> xList;
@@ -173,31 +202,22 @@ void mainPC::ImageConsumer()
             }
 
             vector<int> indices;
-            cv::dnn::NMSBoxes(boxes, confidences, 0.5, 0.2, indices);
-            Rect midBox(1280 / 2 - 1, 1080 / 2 - 1, 2, 2);
-            int distance = 1280;
-            int midIndex = -1;
+            cv::dnn::NMSBoxes(boxes, confidences, 0.1, 0.3, indices);
 
-            //autoAim = 3;
+            autoAim = 2;
+            aimPosi = 1;
             newSerialDataLock.lock();
-            autoAim = newSerialData.isAutoAim.d;
+            //autoAim = newSerialData.isAutoAim.d; aimPosi = newSerialData.aim_posi.d;
             int stm32Time = newSerialData.tr_data_systerm_time.d;
             float world_delta_x = newSerialData.tr_data_act_pos_sys_x.d - newSerialData.world_x.d;
             float world_delta_y = newSerialData.tr_data_act_pos_sys_y.d - newSerialData.world_y.d;
             newSerialDataLock.unlock();
 
+            char rb;
+            char which_one = '0';
             if (autoAim != 0)
-                cout << "autoAim: " << autoAim << endl;
-            else
-                cout << "autoAim: close\n";
-
-            for (size_t i = 0; i < indices.size(); ++i)
             {
-                int idx = indices[i];
-                Rect box = boxes[idx];
-                int delta_x = abs(getCenterPoint(box).x - 1280 / 2.0);
-                char rb;
-                char which_one;
+                cout << "autoAim: " << autoAim << endl;
                 if (autoAim >= 1 && autoAim <= 5)
                     rb = 'r';
                 else if (autoAim >= 6 && autoAim <= 10)
@@ -207,76 +227,106 @@ void mainPC::ImageConsumer()
                 int t_autoAim = autoAim;
                 if (t_autoAim > 5) //换算
                     t_autoAim -= 5;
-                switch (t_autoAim)
-                {
-                case 1:
+                if (1 == t_autoAim || 5 == t_autoAim)
                     which_one = '1';
-                    break;
-                case 2:
+                else if (2 == t_autoAim || 4 == t_autoAim)
                     which_one = '2';
-                    break;
-                case 3:
+                else
                     which_one = '3';
-                    break;
-                case 4:
-                    which_one = '2';
-                    break;
-                case 5:
-                    which_one = '1';
-                    break;
-                }
+            }
+            else
+                cout << "autoAim: close\n";
 
-                if (delta_x < distance &&
-                    classNamesVec[classIds[idx]][0] == rb &&
+            vector<detectAns> dAns;
+            int dAnsCnt = 0;
+
+            for (size_t i = 0; i < indices.size(); ++i)
+            {
+                int idx = indices[i];
+                Rect box = boxes[idx];
+                int delta_x = abs(getCenterPoint(box).x - 1280 / 2.0);
+
+                if (classNamesVec[classIds[idx]][0] == rb &&
                     classNamesVec[classIds[idx]][1] == which_one)
                 {
-                    cout << rb << " " << which_one << endl;
-                    distance = delta_x;
-                    midBox = box;
-                    midIndex = idx;
-                    break;
+                    cout << rb << which_one << endl;
+                    struct detectAns temp_ans;
+                    temp_ans.distance = delta_x;
+                    temp_ans.midBox = box;
+                    temp_ans.midIndex = idx;
+                    dAns.push_back(temp_ans);
+                    ++dAnsCnt;
                 }
             }
-            if (indices.size() != 0 && autoAim != 0 && midIndex != -1)
+            if (0 != indices.size() && 0 != autoAim && 0 != dAnsCnt)
             {
-                Rect big_box(rangeLimitPoint(midBox.tl() - Point(15, 10)),
-                             rangeLimitPoint(midBox.br() + Point(15, 10)));
-                rectangle(fix_img, midBox, Scalar(0, 0, 255), 2);
-                rectangle(fix_img, big_box, Scalar(255, 255, 255), 2);
-
-                vector<vector<Point>> contours;
-                vector<Vec4i> hierarchy;
-                Mat tmp_src;
-                cvtColor(src_copy(big_box), tmp_src, COLOR_BGR2GRAY);
-
-                findContours(tmp_src, contours, hierarchy, RETR_CCOMP, CHAIN_APPROX_SIMPLE); //查找轮廓
-
-                Point pt[512];  //存储连通区域个数
-                Moments moment; //矩
-                int maxArea = -1;
-                Point maxCoor;
-                for (int i = 0; i < contours.size(); i++) //读取每一个轮廓求取重心
+                detectAns goodAns;
+                if ((2 >= dAnsCnt) && (1 == which_one || 2 == which_one)) // 有两解且可能出现两解
                 {
-
-                    double t = contourArea(contours.at(i));
-                    if (maxArea < t)
-                    {
-                        maxArea = t;
-                        Mat temp(contours.at(i));
-                        moment = moments(temp, false);
-                        maxCoor.x = cvRound(moment.m10 / moment.m00);
-                        maxCoor.y = cvRound(moment.m01 / moment.m00);
-                    }
+                    for (int i = 0; i < dAnsCnt; ++i) //简单的冒泡，甚至连剪枝都不写
+                        for (int j = 0; j < dAnsCnt; ++j)
+                            if (dAns[j].midBox.x > dAns[j + 1].midBox.x)
+                            {
+                                detectAns temp = dAns[j];
+                                dAns[j] = dAns[j + 1];
+                                dAns[j + 1] = temp;
+                            }
+                    detectAns l_ans = dAns[0], r_ans = dAns[dAnsCnt - 1];
+                    if (which_one == 2)                       //只有二型桶涉及左右
+                        if (autoAim - (aimPosi - 1) * 5 == 2) // 2号桶
+                            if (aimPosi == 1)
+                                goodAns = r_ans;
+                            else
+                                goodAns = l_ans;
+                        else // 4号桶
+                        {
+                            if (aimPosi == 1)
+                                goodAns = l_ans;
+                            else
+                                goodAns = r_ans;
+                        }
+                    else if (which_one == 1)                  //1左5右
+                        if (autoAim - (aimPosi - 1) * 5 == 1) // 1号桶
+                            goodAns = l_ans;
+                        else // 5号桶
+                            goodAns = r_ans;
+                    else if (which_one == 3) //不会真的能进到这儿吧，不会吧不会吧？
+                        goodAns = l_ans;     //随便给一个，予以尊重。
                 }
+                else
+                    goodAns = dAns[0];
 
-                Point ans1 = rangeLimitPoint(Point(maxCoor.x + big_box.x, maxCoor.y + big_box.y));
-                circle(fix_img, ans1, 3, Scalar(255, 255, 255), 1);
-                Point ans = rangeLimitPoint(Point(midBox.x + midBox.width / 2, midBox.y + midBox.height / 2));
+                Rect big_box(rangeLimitPoint(goodAns.midBox.tl() - Point(15, 10)),
+                             rangeLimitPoint(goodAns.midBox.br() + Point(15, 10)));
+                Point momentsPoint = getMoments(src_copy, big_box);
+                Point ans = rangeLimitPoint(Point(goodAns.midBox.x + goodAns.midBox.width / 2,
+                                                  goodAns.midBox.y + goodAns.midBox.height / 2));
+                rectangle(fix_img, goodAns.midBox, Scalar(0, 0, 255), 2);
+                rectangle(fix_img, big_box, Scalar(255, 255, 255), 2);
+                circle(fix_img, momentsPoint, 3, Scalar(255, 255, 255), 1);
                 circle(fix_img, ans - Point(0, 30), 3, Scalar(255, 255, 0), 1);
-                String className = "total:" + to_string(indices.size()) + "  " + classNamesVec[classIds[midIndex]];
-                putText(fix_img, className.c_str(), midBox.tl(), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0), 2, 8);
 
-                Send2Stm32 send_data{int16_t(ans.x - 1280 / 2.0), float(0)};
+                String className = "total:" + to_string(indices.size()) + "  " + classNamesVec[classIds[goodAns.midIndex]];
+                putText(fix_img, className.c_str(), goodAns.midBox.tl(), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0), 2, 8);
+
+                last_delta_x = ans.x - 1280 / 2.0;
+
+                while (xList.size() >= 4)
+                    xList.pop_front();
+                xList.push_back(last_delta_x); //保持列表长度为10
+
+                int avg = 0;
+                for (int n : xList)
+                    avg += n;
+                avg = avg / (int)xList.size(); //对4个数求平均
+                if (abs(avg - xList.back()) > 150)
+                {
+                    xList.pop_back();
+                    xList.push_back(avg);
+                }
+                last_delta_x = xList.back();
+
+                Send2Stm32 send_data{int16_t(last_delta_x), float(0)};
                 unsigned char Tdata[9];
                 Tdata[0] = 0xA5;
                 Tdata[1] = 0x5A;
@@ -289,22 +339,6 @@ void mainPC::ImageConsumer()
                 Append_CRC8_Check_Sum(Tdata, 9);
                 wzSerialportPlus.send(Tdata, 9);
 
-                last_delta_x = send_data.delta_x_pixel.d;
-
-                while (xList.size() > 10)
-                    xList.pop_front();
-                xList.push_back(last_delta_x);
-                /*
-                int avg = 0;
-                for(int i = xList.begin(); i< xList.end(); ++i){
-                    avg += xList[i];
-                }
-                avg /= xList.size();
-                if (abs(avg - xList.back()) < 150)
-                {
-
-                }
-                */
                 aim_categories.push_back(now::ms());
                 if (int(last_delta_x) > 35)
                     aim_data.push_back(35);
@@ -314,7 +348,7 @@ void mainPC::ImageConsumer()
                     aim_data.push_back(int(last_delta_x));
                 int t_x = last_delta_x;
                 kal.kalmanFilter(t_x);
-                aim_fixdata.push_back(t_x);
+                //aim_fixdata.push_back(t_x);
             }
 
             chassis_categories.push_back(now::ms());
