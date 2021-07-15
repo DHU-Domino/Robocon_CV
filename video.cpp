@@ -34,13 +34,16 @@ void video::initParam()
 {
     status = GXSetEnum(hDevice, GX_ENUM_ACQUISITION_MODE, GX_ACQ_MODE_CONTINUOUS); //设置采集模式为连续采集
     status = GXSetEnum(hDevice, GX_ENUM_ACQUISITION_FRAME_RATE_MODE, GX_ACQUISITION_FRAME_RATE_MODE_ON);
-    status = GXSetFloat(hDevice, GX_FLOAT_ACQUISITION_FRAME_RATE, 60); //设置采集帧率,假设设置为 10.0，用户按照实际需求设置此值
-    double dExposureValue = 10000.0;
+    status = GXSetFloat(hDevice, GX_FLOAT_ACQUISITION_FRAME_RATE, 200); //设置采集帧率,假设设置为 10.0，用户按照实际需求设置此值
+    double dExposureValue = 5000.0;//rm: day1794   rc: day2054/night5000
     status = GXSetFloat(hDevice, GX_FLOAT_EXPOSURE_TIME, dExposureValue);
-    //status = GXSetEnum(hDevice, GX_ENUM_BALANCE_WHITE_AUTO, GX_BALANCE_WHITE_AUTO_CONTINUOUS);
     //status = GXSetEnum(hDevice, GX_ENUM_EXPOSURE_AUTO, GX_EXPOSURE_AUTO_CONTINUOUS);
+    
     status = GXSetEnum(hDevice,GX_ENUM_BALANCE_RATIO_SELECTOR, GX_BALANCE_RATIO_SELECTOR_RED);
-    status = GXSetFloat(hDevice, GX_FLOAT_BALANCE_RATIO, 1.3906);
+    status = GXSetFloat(hDevice, GX_FLOAT_BALANCE_RATIO, 1.3398);//rm:1.5117,rc:1.3398
+    status = GXSetEnum(hDevice,GX_ENUM_BALANCE_RATIO_SELECTOR, GX_BALANCE_RATIO_SELECTOR_BLUE);
+    status = GXSetFloat(hDevice, GX_FLOAT_BALANCE_RATIO, 1.3789);//rm:1.3672,rc:1.3789
+    //status = GXSetEnum(hDevice, GX_ENUM_BALANCE_WHITE_AUTO, GX_BALANCE_WHITE_AUTO_CONTINUOUS);
 }
 
 int video::videoCheck()//搜索相机

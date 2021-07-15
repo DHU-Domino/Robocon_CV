@@ -40,12 +40,12 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
-struct detectAns
+typedef struct detectAns
 {
     Rect midBox;
     int distance = 1280;
     int midIndex = -1;
-};
+}temp_ans;
 
 Point getMoments(Mat, Rect);
 
