@@ -6,7 +6,7 @@
 using namespace std;
 using namespace cv;
 
-std::mutex data_mt, scrLock;
+std::mutex data_mt;
 Mat src, fix_img;
 Json aim, chassis;
 int autoAim = 0, aimPosi = 1;
@@ -56,7 +56,9 @@ Rect rangeLimitRect(Rect r)
 
 mainPC::mainPC(int *setting)
 {
-    FileStorage storage("setting.xml", FileStorage::READ);
+    FileStorage storage("/home/domino/robocon/setting.xml", FileStorage::READ);
+    target_control = storage["Target"].real();
+    position_control = storage["Position"].real();
     ROI[0] = storage["OffSetX"].real();
     ROI[1] = storage["OffSetY"].real();
     ROI[2] = storage["Width"].real();
@@ -75,6 +77,7 @@ void mainPC::ImageProducer()
     }
     if (a.videoOpen())
     {
+        a.initParam(ExposeTime);
         a.streamControl(1);
         cerr << "ok\n";
     }
@@ -84,10 +87,14 @@ void mainPC::ImageProducer()
             ;
         if (a.getFrame(src))
         {
+            if (src.empty())
+                continue;
+            if (3 != src.channels())
+                continue;
         }
         else
         {
-            cout << "getFrame failed!\n";
+            cerr << "getFrame failed!\n";
             continue;
         }
         ++prdIndex;
@@ -108,7 +115,6 @@ Point getMoments(Mat t, Rect r)
     Point maxCoor;
     for (int i = 0; i < contours.size(); ++i) //读取每一个轮廓求取重心
     {
-
         double t = contourArea(contours.at(i));
         if (maxArea < t)
         {
@@ -120,7 +126,6 @@ Point getMoments(Mat t, Rect r)
         }
     }
     return rangeLimitPoint(Point(maxCoor.x + r.x, maxCoor.y + r.y));
-    ;
 }
 
 void mainPC::ImageConsumer()
@@ -136,8 +141,8 @@ void mainPC::ImageConsumer()
 
     cv::dnn::Net net = cv::dnn::readNetFromDarknet("/home/domino/robocon/asset/yolov4-tiny-obj-rc.cfg",
                                                    "/home/domino/robocon/asset/7.15/yolov4-tiny-obj-rc_final.weights");
-                                                   //"/home/domino/robocon/asset/7.2/yolov4-tiny-obj-rc_best.weights");
-                                                   //"/home/domino/robocon/asset/6.24/yolov4-tiny-obj-rc_2000.weights");
+    //"/home/domino/robocon/asset/7.2/yolov4-tiny-obj-rc_best.weights");
+    //"/home/domino/robocon/asset/6.24/yolov4-tiny-obj-rc_2000.weights");
     net.setPreferableBackend(cv::dnn::Backend::DNN_BACKEND_DEFAULT);
     net.setPreferableTarget(cv::dnn::Target::DNN_TARGET_CPU);
     std::vector<String> outNames = net.getUnconnectedOutLayersNames();
@@ -148,7 +153,7 @@ void mainPC::ImageConsumer()
         string className = "";
         while (std::getline(classNamesFile, className))
         {
-            cout << className << endl;
+            cerr << className << '\n';
             classNamesVec.push_back(className);
         }
     }
@@ -158,14 +163,12 @@ void mainPC::ImageConsumer()
     {
         while (prdIndex - csmIndex == 0)
             ;
+        int64 start = getTickCount();
         data_mt.lock();
 
         Mat src_copy;
-        Rect _dect_rect;
         src.copyTo(fix_img);
         src.copyTo(src_copy);
-
-        int64 start = getTickCount();
         try
         {
             Mat inputBlob = cv::dnn::blobFromImage(src_copy, 1 / 255.F, Size(416, 416), Scalar(), true, false);
@@ -205,19 +208,24 @@ void mainPC::ImageConsumer()
             vector<int> indices;
             cv::dnn::NMSBoxes(boxes, confidences, 0.1, 0.3, indices);
 
-            //autoAim = 2+5; aimPosi = 1;
             newSerialDataLock.lock();
-            autoAim = newSerialData.isAutoAim.d; aimPosi = newSerialData.aim_posi.d;
+            if (-1 != target_control)
+                autoAim = target_control;
+            else
+                autoAim = newSerialData.isAutoAim.d;
+            if (-1 != position_control)
+                aimPosi = position_control;
+            else
+                aimPosi = aimPosi = newSerialData.aim_posi.d;
             int stm32Time = newSerialData.tr_data_systerm_time.d;
             float world_delta_x = newSerialData.tr_data_act_pos_sys_x.d - newSerialData.world_x.d;
             float world_delta_y = newSerialData.tr_data_act_pos_sys_y.d - newSerialData.world_y.d;
             newSerialDataLock.unlock();
 
-            char rb;
-            char which_one = '0';
+            char rb, which_one = '0';
             if (autoAim != 0)
             {
-                cout << "autoAim: " << autoAim << endl;
+                cerr << "autoAim: " << autoAim << '\n';
                 if (autoAim >= 1 && autoAim <= 5)
                     rb = 'r';
                 else if (autoAim >= 6 && autoAim <= 10)
@@ -235,7 +243,7 @@ void mainPC::ImageConsumer()
                     which_one = '3';
             }
             else
-                cout << "autoAim: close\n";
+                cerr << "autoAim: close\n";
 
             vector<detectAns> dAns;
             int dAnsCnt = 0;
@@ -247,27 +255,26 @@ void mainPC::ImageConsumer()
                 int delta_x = abs(getCenterPoint(box).x - 1280 / 2.0);
 
                 if (classNamesVec[classIds[idx]][0] == rb &&
-                    classNamesVec[classIds[idx]][1] == which_one)//tmd这个whichone是字符，不是数字
+                    classNamesVec[classIds[idx]][1] == which_one) //tmd这个whichone是字符，不是数字
                 {
-                    cout << rb << which_one << endl;
+                    cerr << rb << which_one << '\n';
                     struct detectAns temp_ans;
                     temp_ans.distance = delta_x;
                     temp_ans.midBox = box;
                     temp_ans.midIndex = idx;
                     dAns.push_back(temp_ans);
                     ++dAnsCnt;
-
-                    rectangle(fix_img, box, Scalar(0, 0, 255), 1);
-                    putText(fix_img, classNamesVec[classIds[idx]].c_str(), box.tl(), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0), 1, 8);
                 }
+                rectangle(fix_img, box, Scalar(0, 0, 255), 1);
+                putText(fix_img, classNamesVec[classIds[idx]].c_str(), box.tl(), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0), 1, 8);
             }
             if (0 != indices.size() && 0 != autoAim && 0 != dAnsCnt)
             {
                 struct detectAns goodAns;
                 if ((2 <= dAnsCnt) && ('1' == which_one || '2' == which_one)) // 有两解且可能出现两解
                 {
-                    for (int i = 0; i < dAnsCnt; ++i) //简单的冒泡，甚至连剪枝都不写
-                        for (int j = 0; j < dAnsCnt; ++j)
+                    for (int i = 0; i < dAnsCnt - 1; ++i) //简单的冒泡，甚至连剪枝都不写
+                        for (int j = 0; j < dAnsCnt - 1; ++j)
                             if (dAns[j].midBox.x > dAns[j + 1].midBox.x)
                             {
                                 detectAns temp = dAns[j];
@@ -275,8 +282,9 @@ void mainPC::ImageConsumer()
                                 dAns[j + 1] = temp;
                             }
                     detectAns l_ans = dAns[0], r_ans = dAns[dAnsCnt - 1];
-                    if(autoAim > 5) autoAim-=5;
-                    if (which_one == '2')                       //只有二型桶涉及左右
+                    if (autoAim >= 6)
+                        autoAim -= 5;
+                    if (which_one == '2') //只有二型桶涉及左右
                     {
                         if (autoAim - (aimPosi - 1) * 5 == 2) // 2号桶
                         {
@@ -293,13 +301,11 @@ void mainPC::ImageConsumer()
                                 goodAns = r_ans;
                         }
                     }
-                    else if (which_one == '1')                  //1左5右
+                    else if (which_one == '1')                //1左5右
                         if (autoAim - (aimPosi - 1) * 5 == 1) // 1号桶
                             goodAns = l_ans;
                         else // 5号桶
                             goodAns = r_ans;
-                    else if (which_one == '3') //不会真的能进到这儿吧，不会吧不会吧？
-                        goodAns = l_ans;     //随便给一个，予以尊重。
                 }
                 else
                     goodAns = dAns[0];
@@ -313,8 +319,6 @@ void mainPC::ImageConsumer()
                 rectangle(fix_img, big_box, Scalar(255, 255, 255), 2);
                 circle(fix_img, momentsPoint, 3, Scalar(255, 255, 255), 1);
                 circle(fix_img, ans - Point(0, 30), 3, Scalar(255, 255, 0), 1);
-                //String className = "total:" + to_string(indices.size()) + "  " + classNamesVec[classIds[goodAns.midIndex]];
-                //putText(fix_img, className.c_str(), goodAns.midBox.tl(), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0), 2, 8);
                 last_delta_x = ans.x - 1280 / 2.0;
 
                 while (xList.size() >= 4)
@@ -380,7 +384,7 @@ void mainPC::ImageConsumer()
         }
         catch (cv::Exception e)
         {
-            cerr << e.what() << endl;
+            cerr << e.what() << '\n';
         }
 
         data_mt.unlock();

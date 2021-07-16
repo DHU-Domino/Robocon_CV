@@ -23,7 +23,7 @@ public:
     video();
     ~video();
 
-    void initParam();
+    void initParam(int ExposeTime);
     int videoCheck();
     bool videoOpen();
     bool getFrame(Mat& img);

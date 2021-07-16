@@ -61,6 +61,8 @@ public:
 private:
     video a;
     kalman kal;
+    int target_control = -1;
+    int position_control = -1;
     int ROI[4];
     int ExposeTime;
     double AdjustPlus;

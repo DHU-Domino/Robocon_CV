@@ -30,20 +30,22 @@ video::~video()
     status = GXCloseDevice(hDevice);
     status = GXCloseLib();
 }
-void video::initParam()
+void video::initParam(int ExposeTime)
 {
     status = GXSetEnum(hDevice, GX_ENUM_ACQUISITION_MODE, GX_ACQ_MODE_CONTINUOUS); //设置采集模式为连续采集
     status = GXSetEnum(hDevice, GX_ENUM_ACQUISITION_FRAME_RATE_MODE, GX_ACQUISITION_FRAME_RATE_MODE_ON);
-    status = GXSetFloat(hDevice, GX_FLOAT_ACQUISITION_FRAME_RATE, 200); //设置采集帧率,假设设置为 10.0，用户按照实际需求设置此值
-    double dExposureValue = 5000.0;//rm: day1794   rc: day2054/night5000
+    status = GXSetFloat(hDevice, GX_FLOAT_ACQUISITION_FRAME_RATE, 80); //设置采集帧率,假设设置为 10.0，用户按照实际需求设置此值
+    double dExposureValue = ExposeTime;//rm: day1794 / night?40000   rc: day 11:2500 12:50 6000 / night 18:5000|20:35000|22:40000
     status = GXSetFloat(hDevice, GX_FLOAT_EXPOSURE_TIME, dExposureValue);
     //status = GXSetEnum(hDevice, GX_ENUM_EXPOSURE_AUTO, GX_EXPOSURE_AUTO_CONTINUOUS);
     
+    /*//曝光如果合适，自动白平衡也不错
     status = GXSetEnum(hDevice,GX_ENUM_BALANCE_RATIO_SELECTOR, GX_BALANCE_RATIO_SELECTOR_RED);
-    status = GXSetFloat(hDevice, GX_FLOAT_BALANCE_RATIO, 1.3398);//rm:1.5117,rc:1.3398
+    status = GXSetFloat(hDevice, GX_FLOAT_BALANCE_RATIO, 1.3398);//rm: day1.5117/night?    rc: day1.3398/night?
     status = GXSetEnum(hDevice,GX_ENUM_BALANCE_RATIO_SELECTOR, GX_BALANCE_RATIO_SELECTOR_BLUE);
-    status = GXSetFloat(hDevice, GX_FLOAT_BALANCE_RATIO, 1.3789);//rm:1.3672,rc:1.3789
-    //status = GXSetEnum(hDevice, GX_ENUM_BALANCE_WHITE_AUTO, GX_BALANCE_WHITE_AUTO_CONTINUOUS);
+    status = GXSetFloat(hDevice, GX_FLOAT_BALANCE_RATIO, 1.3789);//rm: day1.3672/night?    rc: day1.3789/night?
+    */
+    status = GXSetEnum(hDevice, GX_ENUM_BALANCE_WHITE_AUTO, GX_BALANCE_WHITE_AUTO_CONTINUOUS);
 }
 
 int video::videoCheck()//搜索相机
@@ -58,8 +60,6 @@ bool video::videoOpen()//初始化相机
     stOpenParam.openMode = GX_OPEN_INDEX;
     stOpenParam.pszContent = "1";
     status = GXOpenDevice(&stOpenParam, &hDevice);
-
-    initParam();//初始化相机参数
     return true;
 }
 
