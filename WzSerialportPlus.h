@@ -28,6 +28,12 @@ typedef union
     unsigned char c[4];
 } int32uchar;
 
+typedef union
+{
+    uint32_t d;
+    unsigned char c[4];
+} uint32uchar;
+
 //字节数为4的uchar数据类型
 typedef union
 {
@@ -41,6 +47,12 @@ typedef union
     int16_t d;
     unsigned char c[2];
 } int16uchar;
+
+typedef union
+{
+    uint16_t d;
+    unsigned char c[2];
+} uint16uchar;
 
 //字节数为1的uchar数据类型
 typedef union
@@ -86,9 +98,12 @@ typedef struct
     float2uchar world_y;         //15
     float2uchar world_angle_yaw; //19
 
-    int8uchar crc8_2; //20
-    int8uchar ret;    //21
-    int8uchar enter;  //22
+    uint16uchar laser_dis; //21
+    float2uchar aim_tract;  //25
+
+    int8uchar crc8_2; //26
+    int8uchar ret;    //27
+    int8uchar enter;  //28
 
 } SendData;
 

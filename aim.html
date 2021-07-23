@@ -16,6 +16,7 @@
         var x = [];
         var y = [];
         var fix_delta_x = [];
+        var laser_dis = [];
 
         var option = {
             tooltip: {
@@ -27,7 +28,7 @@
 
             },
             legend: {
-                data: ['delta_x', 'fix_delta_x']
+                data: ['delta_x', 'fix_delta_x', 'laser_dis']
             },
             toolbox: {
                 feature: {
@@ -61,6 +62,15 @@
                         position: 'top',
                     },
                 },
+                {
+                    name: 'laser_dis',
+                    type: 'line',
+                    data: laser_dis,
+                    label: {
+                        show: true,
+                        position: 'top',
+                    },
+                },
             ]
         };
         myChart.setOption(option);
@@ -74,11 +84,13 @@
                     x.push(data.categories[j]);
                     y.push(data.delta_x[j]);
                     fix_delta_x.push(data.fix_delta_x[j]);
+                    laser_dis.push(data.laser_dis[j]);
                 }
-                while (x[x.length - 1] - x[0] > 15000) {
+                while (x[x.length - 1] - x[0] > 12000) {
                     x.shift();
                     y.shift();
                     fix_delta_x.shift();
+                    laser_dis.push(data.laser_dis[j]);
                 }
                 myChart.setOption({
                     xAxis: {
@@ -91,6 +103,10 @@
                     {
                         name: 'fix_delta_x',
                         data: fix_delta_x
+                    },
+                    {
+                        name: 'laser_dis',
+                        data: laser_dis
                     }]
                 });
             });

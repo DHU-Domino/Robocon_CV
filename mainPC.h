@@ -63,6 +63,7 @@ private:
     kalman kal;
     int target_control = -1;
     int position_control = -1;
+    int deltaX[5];
     int ROI[4];
     int ExposeTime;
     double AdjustPlus;

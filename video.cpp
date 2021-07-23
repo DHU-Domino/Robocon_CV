@@ -35,7 +35,7 @@ void video::initParam(int ExposeTime)
     status = GXSetEnum(hDevice, GX_ENUM_ACQUISITION_MODE, GX_ACQ_MODE_CONTINUOUS); //设置采集模式为连续采集
     status = GXSetEnum(hDevice, GX_ENUM_ACQUISITION_FRAME_RATE_MODE, GX_ACQUISITION_FRAME_RATE_MODE_ON);
     status = GXSetFloat(hDevice, GX_FLOAT_ACQUISITION_FRAME_RATE, 80); //设置采集帧率,假设设置为 10.0，用户按照实际需求设置此值
-    double dExposureValue = ExposeTime;//rm: day1794 / night?40000   rc: day 11:2500 12:50 6000 / night 18:5000|20:35000|22:40000
+    double dExposureValue = ExposeTime;//rm: day1794 / night?40000   rc: day 11:2500 12:50 6000 / night 18:5000|20:75000
     status = GXSetFloat(hDevice, GX_FLOAT_EXPOSURE_TIME, dExposureValue);
     //status = GXSetEnum(hDevice, GX_ENUM_EXPOSURE_AUTO, GX_EXPOSURE_AUTO_CONTINUOUS);
     

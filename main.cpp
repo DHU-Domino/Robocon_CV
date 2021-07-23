@@ -16,7 +16,7 @@ SendData newSerialData{
     float(0), float(0), int8_t(0),
 
     int8_t(0), float(0),
-    int8_t(0), int8_t(0), float(0), float(0), float(0),
+    int8_t(0), int8_t(0), float(0), float(0), float(0), uint16_t(0), float(0),
     int8_t(0), int8_t(0), int8_t(0)};
 vector<SendData> toJson;
 WzSerialportPlus wzSerialportPlus;
@@ -24,7 +24,7 @@ mutex toJsonLock, newSerialDataLock;
 
 extern mutex data_mt;
 extern Mat src, fix_img, res1;
-extern Json aim, chassis;
+extern Json aim, chassis, excel;
 extern int autoAim;
 
 void sig_exit(int s)
@@ -56,11 +56,11 @@ void serialTask()
                 int16_t(0), int8_t(0),
 
                 int8_t(0), int16_t(0), int16_t(0), int16_t(0),
-                int32_t(0), int32_t(0), int32_t(0), int32_t(0),
+                uint32_t(0), int32_t(0), int32_t(0), int32_t(0),
                 float(0), float(0), int8_t(0),
 
                 int8_t(0), float(0),
-                int8_t(0), int8_t(0), float(0), float(0), float(0),
+                int8_t(0), int8_t(0), float(0), float(0), float(0), uint16_t(0), float(0),
                 int8_t(0), int8_t(0), int8_t(0)};
 
             memcpy(&send_data, data, sizeof(send_data));
@@ -169,6 +169,7 @@ int main()
                         aim["categories"].set_array();
                         aim["delta_x"].set_array();
                         aim["fix_delta_x"].set_array();
+                        aim["laser_dis"].set_array();
                         data_mt.unlock();
                         res.set_body(tmp_r.str().c_str());
                     }
@@ -183,6 +184,22 @@ int main()
                     chassis["categories"].set_array();
                     chassis["world_delta_x"].set_array();
                     chassis["world_delta_y"].set_array();
+                    chassis["world_x"].set_array();
+                    chassis["world_y"].set_array();
+                    chassis["act_x"].set_array();
+                    chassis["act_y"].set_array();
+                    data_mt.unlock();
+                    res.set_body(tmp_r.str().c_str());
+                }
+                else if (req.url() == "/excel.json")
+                {
+                    res.set_status(200);
+                    res.add_header("Access-Control-Allow-Origin", "*");
+                    data_mt.lock();
+                    Json tmp_r;
+                    tmp_r = excel;
+                    excel["data"]["laser_dis"] = 0;
+                    excel["data"]["aim_tract"] = 0;
                     data_mt.unlock();
                     res.set_body(tmp_r.str().c_str());
                 }

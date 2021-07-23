@@ -17,6 +17,11 @@
         var world_d_x = [];
         var world_d_y = [];
 
+        var act_x = [];
+        var act_y = [];
+        var world_x = [];
+        var world_y = [];
+
         var option = {
             tooltip: {
                 trigger: 'axis',
@@ -27,7 +32,7 @@
 
             },
             legend: {
-                data: ['world_delta_x', 'world_delta_y',]
+                data: ['world_delta_x', 'world_delta_y', 'act_x', 'act_y', 'world_x', 'world_y']
             },
             toolbox: {
                 feature: {
@@ -52,6 +57,26 @@
                     name: 'world_delta_y',
                     type: 'line',
                     data: world_d_y
+                },
+                {
+                    name: 'act_x',
+                    type: 'line',
+                    data: act_x
+                },
+                {
+                    name: 'act_y',
+                    type: 'line',
+                    data: act_y
+                },
+                {
+                    name: 'world_x',
+                    type: 'line',
+                    data: world_x
+                },
+                {
+                    name: 'world_y',
+                    type: 'line',
+                    data: world_y
                 }
             ]
         };
@@ -66,11 +91,19 @@
                     x.push(data.categories[j]);
                     world_d_x.push(data.world_delta_x[j]);
                     world_d_y.push(data.world_delta_y[j]);
+                    act_x.push(data.act_x[j]);
+                    act_y.push(data.act_y[j]);
+                    world_x.push(data.world_x[j]);
+                    world_y.push(data.world_y[j]);
                 }
                 while (x[x.length - 1] - x[0] > 15000) {
                     x.shift();
                     world_d_x.shift();
                     world_d_y.shift();
+                    act_x.shift();
+                    act_y.shift();
+                    world_x.shift();
+                    world_y.shift();
                 }
                 myChart.setOption({
                     xAxis: {
@@ -82,6 +115,18 @@
                     }, {
                         name: 'world_delta_y',
                         data: world_d_y
+                    }, {
+                        name: 'act_x',
+                        data: act_x
+                    }, {
+                        name: 'act_y',
+                        data: act_y
+                    }, {
+                        name: 'world_x',
+                        data: world_x
+                    }, {
+                        name: 'world_y',
+                        data: world_y
                     }]
                 });
             });

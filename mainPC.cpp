@@ -8,7 +8,7 @@ using namespace cv;
 
 std::mutex data_mt;
 Mat src, fix_img;
-Json aim, chassis;
+Json aim, chassis, excel;
 int autoAim = 0, aimPosi = 1;
 
 extern WzSerialportPlus wzSerialportPlus;
@@ -59,6 +59,11 @@ mainPC::mainPC(int *setting)
     FileStorage storage("/home/domino/robocon/setting.xml", FileStorage::READ);
     target_control = storage["Target"].real();
     position_control = storage["Position"].real();
+    deltaX[0] = storage["P1D1"].real();
+    deltaX[1] = storage["P1D2"].real();
+    deltaX[2] = storage["P1D3"].real();
+    deltaX[3] = storage["P1D4"].real();
+    deltaX[4] = storage["P1D5"].real();
     ROI[0] = storage["OffSetX"].real();
     ROI[1] = storage["OffSetY"].real();
     ROI[2] = storage["Width"].real();
@@ -134,15 +139,27 @@ void mainPC::ImageConsumer()
     auto aim_categories = aim.add_array("categories", 20);
     auto aim_data = aim.add_array("delta_x", 20);
     auto aim_fixdata = aim.add_array("fix_delta_x", 20);
-
+    auto aim_laser_dis = aim.add_array("laser_dis", 20);
+    auto o = excel.add_object("data", 2);
+    o.add_member("laser_dis", 0);
+    o.add_member("aim_tract", 0);
+    
     auto chassis_categories = chassis.add_array("categories", 20);
     auto chassis_worldx_data = chassis.add_array("world_delta_x", 20);
     auto chassis_worldy_data = chassis.add_array("world_delta_y", 20);
 
+    auto chassis_act_x = chassis.add_array("act_x", 20);
+    auto chassis_act_y = chassis.add_array("act_y", 20);
+
+    auto chassis_world_x = chassis.add_array("world_x", 20);
+    auto chassis_world_y = chassis.add_array("world_y", 20);
+
     cv::dnn::Net net = cv::dnn::readNetFromDarknet("/home/domino/robocon/asset/yolov4-tiny-obj-rc.cfg",
-                                                   "/home/domino/robocon/asset/7.15/yolov4-tiny-obj-rc_final.weights");
-    //"/home/domino/robocon/asset/7.2/yolov4-tiny-obj-rc_best.weights");
-    //"/home/domino/robocon/asset/6.24/yolov4-tiny-obj-rc_2000.weights");
+                                                   ///"/home/domino/robocon/asset/7.15/yolov4-tiny-obj-rc_final.weights");
+                                                   "/home/domino/robocon/asset/7.17/yolov4-tiny-obj-rc_final.weights");
+                                                   //"/home/domino/robocon/asset/7.17/yolov4-tiny-obj-rc_10000.weights");
+                                                   
+                                                   //"/home/domino/robocon/asset/608/yolov4-tiny-obj-rc_final.weights");
     net.setPreferableBackend(cv::dnn::Backend::DNN_BACKEND_DEFAULT);
     net.setPreferableTarget(cv::dnn::Target::DNN_TARGET_CPU);
     std::vector<String> outNames = net.getUnconnectedOutLayersNames();
@@ -159,6 +176,7 @@ void mainPC::ImageConsumer()
     }
 
     int last_delta_x = 0;
+    int aim_flag = 0;
     while (1)
     {
         while (prdIndex - csmIndex == 0)
@@ -209,22 +227,38 @@ void mainPC::ImageConsumer()
             cv::dnn::NMSBoxes(boxes, confidences, 0.1, 0.3, indices);
 
             newSerialDataLock.lock();
-            if (-1 != target_control)
+            if (target_control > 0)
                 autoAim = target_control;
             else
                 autoAim = newSerialData.isAutoAim.d;
-            if (-1 != position_control)
+            if (position_control > 0)
                 aimPosi = position_control;
             else
                 aimPosi = aimPosi = newSerialData.aim_posi.d;
             int stm32Time = newSerialData.tr_data_systerm_time.d;
-            float world_delta_x = newSerialData.tr_data_act_pos_sys_x.d - newSerialData.world_x.d;
-            float world_delta_y = newSerialData.tr_data_act_pos_sys_y.d - newSerialData.world_y.d;
+            //cerr << "stm32Time: " << stm32Time << endl;
+            float act_x = newSerialData.tr_data_act_pos_sys_x.d;
+            float act_y = newSerialData.tr_data_act_pos_sys_y.d;
+            float world_x = newSerialData.world_x.d;
+            float world_y = newSerialData.world_y.d;
+            float aim_tract = newSerialData.aim_tract.d;
+            unsigned int laser_dis = newSerialData.laser_dis.d;
+            cerr << "laser_dis: " << laser_dis << "\taim_tract: " << aim_tract << endl;
+            
             newSerialDataLock.unlock();
 
+            float world_delta_x = act_x - world_x;
+            float world_delta_y = act_y - world_y;
             char rb, which_one = '0';
             if (autoAim != 0)
             {
+                if(0 == aim_flag)//autoAim的一次上升沿
+                {
+                    aim_flag = 1;
+                    excel["data"]["laser_dis"] = laser_dis;
+                    excel["data"]["aim_tract"] = aim_tract;
+                }
+                
                 cerr << "autoAim: " << autoAim << '\n';
                 if (autoAim >= 1 && autoAim <= 5)
                     rb = 'r';
@@ -243,7 +277,13 @@ void mainPC::ImageConsumer()
                     which_one = '3';
             }
             else
+            {
+                aim_flag = 0;
+                excel["data"]["laser_dis"] = 0;
+                excel["data"]["aim_tract"] = 0;
                 cerr << "autoAim: close\n";
+            }
+                
 
             vector<detectAns> dAns;
             int dAnsCnt = 0;
@@ -266,7 +306,7 @@ void mainPC::ImageConsumer()
                     ++dAnsCnt;
                 }
                 rectangle(fix_img, box, Scalar(0, 0, 255), 1);
-                putText(fix_img, classNamesVec[classIds[idx]].c_str(), box.tl(), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0), 1, 8);
+                putText(fix_img, classNamesVec[classIds[idx]].c_str(), box.tl(), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0), 2, 8);
             }
             if (0 != indices.size() && 0 != autoAim && 0 != dAnsCnt)
             {
@@ -302,7 +342,7 @@ void mainPC::ImageConsumer()
                         }
                     }
                     else if (which_one == '1')                //1左5右
-                        if (autoAim - (aimPosi - 1) * 5 == 1) // 1号桶
+                        if (autoAim == 1) // 1号桶
                             goodAns = l_ans;
                         else // 5号桶
                             goodAns = r_ans;
@@ -319,7 +359,10 @@ void mainPC::ImageConsumer()
                 rectangle(fix_img, big_box, Scalar(255, 255, 255), 2);
                 circle(fix_img, momentsPoint, 3, Scalar(255, 255, 255), 1);
                 circle(fix_img, ans - Point(0, 30), 3, Scalar(255, 255, 0), 1);
-                last_delta_x = ans.x - 1280 / 2.0;
+
+                if(autoAim >= 6)
+                    autoAim -= 5;
+                last_delta_x = ans.x - 1280 / 2.0 + deltaX[autoAim-1];
 
                 while (xList.size() >= 4)
                     xList.pop_front();
@@ -350,6 +393,11 @@ void mainPC::ImageConsumer()
                 wzSerialportPlus.send(Tdata, 9);
 
                 aim_categories.push_back(now::ms());
+                if(laser_dis > 1000)  
+                    aim_laser_dis.push_back(1000);
+                else
+                    aim_laser_dis.push_back((int)laser_dis);
+                
                 if (int(last_delta_x) > 35)
                     aim_data.push_back(35);
                 else if (int(last_delta_x) < -35)
@@ -362,6 +410,7 @@ void mainPC::ImageConsumer()
             }
 
             chassis_categories.push_back(now::ms());
+            /*
             if (int(world_delta_x) > 200 || int(world_delta_y) > 200)
             {
                 if (int(world_delta_x) > 200)
@@ -373,7 +422,14 @@ void mainPC::ImageConsumer()
             {
                 chassis_worldx_data.push_back(int(world_delta_x));
                 chassis_worldy_data.push_back(int(world_delta_y));
-            }
+            }*/
+            chassis_worldx_data.push_back(0);
+            chassis_worldy_data.push_back(0);
+            chassis_act_x.push_back(int(act_x));
+            chassis_act_y.push_back(int(act_y));
+            chassis_world_x.push_back(int(world_x));
+            chassis_world_y.push_back(int(world_y));
+            
 
             float fps = getTickFrequency() / (getTickCount() - start);
             ostringstream ss;

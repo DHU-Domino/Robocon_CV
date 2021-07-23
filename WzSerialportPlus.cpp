@@ -219,7 +219,7 @@ bool WzSerialportPlus::open()
                 }
                 else if (receiveData[0] == 0x55)
                 {
-                    if (Verify_CRC8_Check_Sum(receiveData, 20))
+                    if (Verify_CRC8_Check_Sum(receiveData, 26))
                     {
                         for (int i = 64; i < receivedLength + 64; ++i)
                         {
@@ -232,7 +232,7 @@ bool WzSerialportPlus::open()
                 onReceive(receiveData, receivedLength);
                 if (nullptr != receiveCallback && cntResult == 3)
                 {
-                    if (rightLength == 86)
+                    if (rightLength == 92)
                     {
                         receiveCallback(rightData, rightLength);
                     }
