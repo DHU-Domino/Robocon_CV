@@ -40,6 +40,10 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
+const int RED = 0;
+const int BLUE = 1;
+const int ALL = 2;
+
 typedef struct detectAns
 {
     Rect midBox;
@@ -57,17 +61,21 @@ public:
     mainPC(int * setting);
     void ImageProducer();
     void ImageConsumer();
+    void switchModel(int);
     
 private:
+    cv::dnn::Net net;
+    std::ifstream classNamesFile;
+    std::vector<cv::String> outNames;
+    std::vector<std::string> classNamesVec;
+
     video a;
     kalman kal;
+    int color = 0;
     int target_control = -1;
     int position_control = -1;
-    int deltaX[5];
-    int ROI[4];
+    int deltaX[3][5];
     int ExposeTime;
-    double AdjustPlus;
-    double BalanceRatio;
-    double FrameRate;
+    int save;
 };
 

@@ -27,6 +27,7 @@ add_executable(
     video.cpp
     mainPC.cpp
     kalman.cpp
+    ShareMemory.cpp
 )
 
 target_link_libraries(

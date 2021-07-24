@@ -81,7 +81,7 @@ typedef struct
     int16uchar tr_data_pitch_speed_rpm;
     int16uchar tr_data_load_l_speed_rpm;
     int16uchar tr_data_load_r_speed_rpm;
-    int32uchar tr_data_traction_total_ecd;
+    float2uchar avg_laser_dis;
     int32uchar tr_data_pitch_total_ecd;
     int32uchar tr_data_load_l_total_ecd;
     int32uchar tr_data_load_r_total_ecd;
@@ -100,10 +100,11 @@ typedef struct
 
     uint16uchar laser_dis; //21
     float2uchar aim_tract;  //25
+    float2uchar pitch_angle; //29
 
-    int8uchar crc8_2; //26
-    int8uchar ret;    //27
-    int8uchar enter;  //28
+    int8uchar crc8_2; //30
+    int8uchar ret;    //31
+    int8uchar enter;  //32
 
 } SendData;
 

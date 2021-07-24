@@ -4,6 +4,7 @@
 #include "server.h"
 #include "WzSerialportPlus.h"
 #include "CRC_Check.h"
+#include "ShareMemory.h"
 
 SendData newSerialData{
     int8_t(1), int32_t(0),
@@ -12,11 +13,11 @@ SendData newSerialData{
     int16_t(0), int8_t(0),
 
     int8_t(0), int16_t(0), int16_t(0), int16_t(0),
-    int32_t(0), int32_t(0), int32_t(0), int32_t(0),
+    float(0), int32_t(0), int32_t(0), int32_t(0),
     float(0), float(0), int8_t(0),
 
     int8_t(0), float(0),
-    int8_t(0), int8_t(0), float(0), float(0), float(0), uint16_t(0), float(0),
+    int8_t(0), int8_t(0), float(0), float(0), float(0), uint16_t(0), float(0), float(0),
     int8_t(0), int8_t(0), int8_t(0)};
 vector<SendData> toJson;
 WzSerialportPlus wzSerialportPlus;
@@ -56,11 +57,11 @@ void serialTask()
                 int16_t(0), int8_t(0),
 
                 int8_t(0), int16_t(0), int16_t(0), int16_t(0),
-                uint32_t(0), int32_t(0), int32_t(0), int32_t(0),
+                float(0), int32_t(0), int32_t(0), int32_t(0),
                 float(0), float(0), int8_t(0),
 
                 int8_t(0), float(0),
-                int8_t(0), int8_t(0), float(0), float(0), float(0), uint16_t(0), float(0),
+                int8_t(0), int8_t(0), float(0), float(0), float(0), uint16_t(0), float(0), float(0),
                 int8_t(0), int8_t(0), int8_t(0)};
 
             memcpy(&send_data, data, sizeof(send_data));
@@ -100,8 +101,10 @@ void img2WebTask()
 
               while (true)
               {
+                  
                   data_mt.lock();
                   fix_img.copyTo(tmp_fiximg);
+                  src.copyTo(tmp_src);
                   data_mt.unlock();
                   if (tmp_fiximg.empty() || tmp_fiximg.channels() != 3)
                       continue;
@@ -200,6 +203,7 @@ int main()
                     tmp_r = excel;
                     excel["data"]["laser_dis"] = 0;
                     excel["data"]["aim_tract"] = 0;
+                    excel["data"]["pitch_angle"] = 0;
                     data_mt.unlock();
                     res.set_body(tmp_r.str().c_str());
                 }

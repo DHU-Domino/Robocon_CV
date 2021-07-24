@@ -57,21 +57,69 @@ Rect rangeLimitRect(Rect r)
 mainPC::mainPC(int *setting)
 {
     FileStorage storage("/home/domino/robocon/setting.xml", FileStorage::READ);
+    color = storage["Color"].real();
     target_control = storage["Target"].real();
     position_control = storage["Position"].real();
-    deltaX[0] = storage["P1D1"].real();
-    deltaX[1] = storage["P1D2"].real();
-    deltaX[2] = storage["P1D3"].real();
-    deltaX[3] = storage["P1D4"].real();
-    deltaX[4] = storage["P1D5"].real();
-    ROI[0] = storage["OffSetX"].real();
-    ROI[1] = storage["OffSetY"].real();
-    ROI[2] = storage["Width"].real();
-    ROI[3] = storage["Height"].real();
+    deltaX[0][0] = storage["P1D1"].real();
+    deltaX[0][1] = storage["P1D2"].real();
+    deltaX[0][2] = storage["P1D3"].real();
+    deltaX[0][3] = storage["P1D4"].real();
+    deltaX[0][4] = storage["P1D5"].real();
+
+    deltaX[1][0] = storage["P2D1"].real();
+    deltaX[1][1] = storage["P2D2"].real();
+    deltaX[1][2] = storage["P2D3"].real();
+    deltaX[1][3] = storage["P2D4"].real();
+    deltaX[1][4] = storage["P2D5"].real();
+
+    save = storage["save"].real();
     ExposeTime = storage["ExposeTime"].real();
-    AdjustPlus = storage["AdjustPlus"].real();
-    BalanceRatio = storage["BalanceRatio"].real();
-    FrameRate = storage["FrameRate"].real();
+}
+
+void mainPC::switchModel(int color)
+{
+    if (0 == color)
+    {
+        net = cv::dnn::readNetFromDarknet("/home/domino/robocon/asset/yolov4-tiny-obj-rc-class_red_3.cfg",
+                                          "/home/domino/robocon/asset/7.23-d2-red3/yolov4-tiny-obj-rc-class_red_3_final.weights");
+        classNamesFile.open("/home/domino/robocon/asset/obj-rc-class_red_3.names");
+    }
+    else if (1 == color)
+    {
+        net = cv::dnn::readNetFromDarknet("/home/domino/robocon/asset/yolov4-tiny-obj-rc-class_blue_3.cfg",
+                                          "/home/domino/robocon/asset/7.23-d2-blue3/yolov4-tiny-obj-rc-class_blue_3_final.weights");
+        classNamesFile.open("/home/domino/robocon/asset/obj-rc-class_blue_3.names");
+    }
+    else if (2 == color)
+    {
+        net = cv::dnn::readNetFromDarknet("/home/domino/robocon/asset/yolov4-tiny-obj-rc.cfg",
+
+                                          //"/home/domino/robocon/asset/6.22/yolov4-tiny-obj-rc_final.weights");
+                                          //"/home/domino/robocon/asset/7.15/yolov4-tiny-obj-rc_final.weights");
+                                          //"/home/domino/robocon/asset/7.15/continue/yolov4-tiny-obj-rc_best.weights");
+                                          //"/home/domino/robocon/asset/7.17/yolov4-tiny-obj-rc_final.weights");
+                                          //"/home/domino/robocon/asset/7.22-d2-1/yolov4-tiny-obj-rc_final.weights");
+                                          //"/home/domino/robocon/asset/7.22-d2-2/yolov4-tiny-obj-rc_final.weights");
+                                          "/home/domino/robocon/asset/7.23-d2-1/yolov4-tiny-obj-rc_final.weights");
+        classNamesFile.open("/home/domino/robocon/asset/obj-rc.names");
+    }
+    net.setPreferableBackend(cv::dnn::Backend::DNN_BACKEND_DEFAULT);
+    net.setPreferableTarget(cv::dnn::Target::DNN_TARGET_CPU);
+
+    outNames.clear();
+    classNamesVec.clear();
+
+    outNames = net.getUnconnectedOutLayersNames();
+    if (classNamesFile.is_open())
+    {
+        string className = "";
+        while (std::getline(classNamesFile, className))
+        {
+            cerr << className << '\n';
+            classNamesVec.push_back(className);
+        }
+        classNamesFile.close();
+    }
 }
 
 void mainPC::ImageProducer()
@@ -143,7 +191,8 @@ void mainPC::ImageConsumer()
     auto o = excel.add_object("data", 2);
     o.add_member("laser_dis", 0);
     o.add_member("aim_tract", 0);
-    
+    o.add_member("pitch_angle", 0);
+
     auto chassis_categories = chassis.add_array("categories", 20);
     auto chassis_worldx_data = chassis.add_array("world_delta_x", 20);
     auto chassis_worldy_data = chassis.add_array("world_delta_y", 20);
@@ -154,29 +203,11 @@ void mainPC::ImageConsumer()
     auto chassis_world_x = chassis.add_array("world_x", 20);
     auto chassis_world_y = chassis.add_array("world_y", 20);
 
-    cv::dnn::Net net = cv::dnn::readNetFromDarknet("/home/domino/robocon/asset/yolov4-tiny-obj-rc.cfg",
-                                                   ///"/home/domino/robocon/asset/7.15/yolov4-tiny-obj-rc_final.weights");
-                                                   "/home/domino/robocon/asset/7.17/yolov4-tiny-obj-rc_final.weights");
-                                                   //"/home/domino/robocon/asset/7.17/yolov4-tiny-obj-rc_10000.weights");
-                                                   
-                                                   //"/home/domino/robocon/asset/608/yolov4-tiny-obj-rc_final.weights");
-    net.setPreferableBackend(cv::dnn::Backend::DNN_BACKEND_DEFAULT);
-    net.setPreferableTarget(cv::dnn::Target::DNN_TARGET_CPU);
-    std::vector<String> outNames = net.getUnconnectedOutLayersNames();
-    vector<string> classNamesVec;
-    ifstream classNamesFile("/home/domino/robocon/asset/obj-rc.names");
-    if (classNamesFile.is_open())
-    {
-        string className = "";
-        while (std::getline(classNamesFile, className))
-        {
-            cerr << className << '\n';
-            classNamesVec.push_back(className);
-        }
-    }
+    switchModel(color);
 
     int last_delta_x = 0;
     int aim_flag = 0;
+    int old_t;
     while (1)
     {
         while (prdIndex - csmIndex == 0)
@@ -242,9 +273,9 @@ void mainPC::ImageConsumer()
             float world_x = newSerialData.world_x.d;
             float world_y = newSerialData.world_y.d;
             float aim_tract = newSerialData.aim_tract.d;
-            unsigned int laser_dis = newSerialData.laser_dis.d;
-            cerr << "laser_dis: " << laser_dis << "\taim_tract: " << aim_tract << endl;
-            
+            float pitch_angle = newSerialData.pitch_angle.d;
+            float avg_laser_dis = newSerialData.avg_laser_dis.d;
+
             newSerialDataLock.unlock();
 
             float world_delta_x = act_x - world_x;
@@ -252,20 +283,33 @@ void mainPC::ImageConsumer()
             char rb, which_one = '0';
             if (autoAim != 0)
             {
-                if(0 == aim_flag)//autoAim的一次上升沿
-                {
-                    aim_flag = 1;
-                    excel["data"]["laser_dis"] = laser_dis;
-                    excel["data"]["aim_tract"] = aim_tract;
-                }
-                
-                cerr << "autoAim: " << autoAim << '\n';
+                aim_flag = 1;
+                excel["data"]["laser_dis"] = 0;
+                excel["data"]["aim_tract"] = 0; //有自瞄的时候都是0
+                excel["data"]["pitch_angle"] = 0;
+                //cerr << "autoAim: " << autoAim << '\n';
                 if (autoAim >= 1 && autoAim <= 5)
+                {
                     rb = 'r';
+                    if(1 == color)
+                    {
+                        color = RED;
+                        switchModel(color);
+                    }
+                }
+                    
                 else if (autoAim >= 6 && autoAim <= 10)
+                {
                     rb = 'b';
+                    if(0 == color)
+                    {
+                        color = BLUE;
+                        switchModel(color);
+                    } 
+                }
                 else
                     rb = ' ';
+
                 int t_autoAim = autoAim;
                 if (t_autoAim > 5) //换算
                     t_autoAim -= 5;
@@ -278,12 +322,15 @@ void mainPC::ImageConsumer()
             }
             else
             {
-                aim_flag = 0;
-                excel["data"]["laser_dis"] = 0;
-                excel["data"]["aim_tract"] = 0;
-                cerr << "autoAim: close\n";
+                if (1 == aim_flag) //autoAim的一次下降沿
+                {
+                    aim_flag = 0;
+                    excel["data"]["laser_dis"] = avg_laser_dis; //没自瞄的时候都是这个数
+                    excel["data"]["aim_tract"] = aim_tract;
+                    excel["data"]["pitch_angle"] = pitch_angle;
+                    cerr << "autoAim: close\n";
+                }
             }
-                
 
             vector<detectAns> dAns;
             int dAnsCnt = 0;
@@ -308,8 +355,23 @@ void mainPC::ImageConsumer()
                 rectangle(fix_img, box, Scalar(0, 0, 255), 1);
                 putText(fix_img, classNamesVec[classIds[idx]].c_str(), box.tl(), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0), 2, 8);
             }
+            if (save == 1)
+            {
+                int t = chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch()).count();
+                if (t - old_t > 10)
+                {
+                    string s = "/home/domino/Picture/" + to_string(t);
+                    cv::imwrite(s + "src.bmp", src);
+                    cv::imwrite(s + "fix_img.bmp", fix_img);
+                    old_t = t;
+                }
+            }
+
             if (0 != indices.size() && 0 != autoAim && 0 != dAnsCnt)
             {
+                if (aim_tract != 0 && avg_laser_dis != 0)
+                    cerr << "avg_laser_dis: " << avg_laser_dis << "\taim_tract: " << aim_tract << endl;
+
                 struct detectAns goodAns;
                 if ((2 <= dAnsCnt) && ('1' == which_one || '2' == which_one)) // 有两解且可能出现两解
                 {
@@ -341,8 +403,8 @@ void mainPC::ImageConsumer()
                                 goodAns = r_ans;
                         }
                     }
-                    else if (which_one == '1')                //1左5右
-                        if (autoAim == 1) // 1号桶
+                    else if (which_one == '1') //1左5右
+                        if (autoAim == 1)      // 1号桶
                             goodAns = l_ans;
                         else // 5号桶
                             goodAns = r_ans;
@@ -360,9 +422,9 @@ void mainPC::ImageConsumer()
                 circle(fix_img, momentsPoint, 3, Scalar(255, 255, 255), 1);
                 circle(fix_img, ans - Point(0, 30), 3, Scalar(255, 255, 0), 1);
 
-                if(autoAim >= 6)
+                if (autoAim >= 6)
                     autoAim -= 5;
-                last_delta_x = ans.x - 1280 / 2.0 + deltaX[autoAim-1];
+                last_delta_x = ans.x - 1280 / 2.0 + deltaX[aimPosi - 1][autoAim - 1];
 
                 while (xList.size() >= 4)
                     xList.pop_front();
@@ -379,7 +441,7 @@ void mainPC::ImageConsumer()
                 }
                 last_delta_x = xList.back();
 
-                Send2Stm32 send_data{int16_t(last_delta_x), float(0)};
+                Send2Stm32 send_data{int16_t(last_delta_x), float(1)};
                 unsigned char Tdata[9];
                 Tdata[0] = 0xA5;
                 Tdata[1] = 0x5A;
@@ -393,11 +455,11 @@ void mainPC::ImageConsumer()
                 wzSerialportPlus.send(Tdata, 9);
 
                 aim_categories.push_back(now::ms());
-                if(laser_dis > 1000)  
+                if (avg_laser_dis > 1000)
                     aim_laser_dis.push_back(1000);
                 else
-                    aim_laser_dis.push_back((int)laser_dis);
-                
+                    aim_laser_dis.push_back((int)avg_laser_dis);
+
                 if (int(last_delta_x) > 35)
                     aim_data.push_back(35);
                 else if (int(last_delta_x) < -35)
@@ -410,31 +472,25 @@ void mainPC::ImageConsumer()
             }
 
             chassis_categories.push_back(now::ms());
-            /*
-            if (int(world_delta_x) > 200 || int(world_delta_y) > 200)
-            {
-                if (int(world_delta_x) > 200)
-                    chassis_worldx_data.push_back(200);
-                else if (int(world_delta_y) > 200)
-                    chassis_worldy_data.push_back(200);
-            }
+
+            if (int(world_delta_x) > 200)
+                chassis_worldx_data.push_back(200);
             else
-            {
                 chassis_worldx_data.push_back(int(world_delta_x));
+            if (int(world_delta_y) > 200)
+                chassis_worldy_data.push_back(200);
+            else
                 chassis_worldy_data.push_back(int(world_delta_y));
-            }*/
-            chassis_worldx_data.push_back(0);
-            chassis_worldy_data.push_back(0);
+
             chassis_act_x.push_back(int(act_x));
             chassis_act_y.push_back(int(act_y));
             chassis_world_x.push_back(int(world_x));
             chassis_world_y.push_back(int(world_y));
-            
 
             float fps = getTickFrequency() / (getTickCount() - start);
             ostringstream ss;
             ss << "FPS : " << fps;
-            line(fix_img, Point2i(1280 / 2, 0), Point2i(1280 / 2, 1080), cv::Scalar(255, 0, 0), 2);
+            line(fix_img, Point2i(1280 / 2, 0), Point2i(1280 / 2, 1080), cv::Scalar(255, 0, 0), 1);
             putText(fix_img, ss.str(), Point(20, 40), 0, 1, Scalar(0, 0, 255), 2);
             putText(fix_img, "last_delta_x: " + to_string(last_delta_x), Point(20, 100), 0, 1, Scalar(0, 0, 255), 2);
         }

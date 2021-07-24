@@ -1,19 +1,24 @@
 <?xml version="1.0"?>
 <opencv_storage>
-<Target>1</Target>
-<Position>1</Position>
-<!--  X/Y偏移值(偏移量必须为16的倍数)   -->
-<OffSetX>0</OffSetX>
-<OffSety>0</OffSety>
-<!--  ROI图像大小   -->
-<Width>1280</Width>
-<Height>1024</Height>
+<Color>1</Color><!--red:0,blue:1,all:2-->
+<Target>-1</Target>
+<Position>-1</Position>
+
+<P1D1>10</P1D1><!--40:10-->
+<P1D2>0</P1D2><!--40:19-->
+<P1D3>25</P1D3><!--47:25-->
+<P1D4>19</P1D4><!--40:9 50:14-->
+<P1D5>6</P1D5><!--40:6-->
+
+<P2D1>6</P2D1>
+<P2D2>12</P2D2>
+<P2D3>8</P2D3>
+<P2D4>14</P2D4>
+<P2D5>14</P2D5>
+
+<save>0</save>
+
 <!--  曝光时间   -->
-<ExposeTime>10000</ExposeTime>
-<!--  增益(-1为自动)   -->
-<AdjustPlus>-1</AdjustPlus>
-<!--  白平衡(-1为自动)   -->
-<BalanceRatio>-1</BalanceRatio>
-<!--  帧率   -->
-<FrameRate>100</FrameRate>
+<ExposeTime>5000</ExposeTime><!-- day5000 night75000 105000  -->
+
 </opencv_storage>
