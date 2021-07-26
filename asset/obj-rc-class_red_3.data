@@ -1,0 +1,6 @@
+classes= 3
+train  = D:\\ENV\\darknet\\build\\darknet\\x64\\data\\voc\\RC\\train.txt
+valid  = 
+names = D:\\ENV\\darknet\\build\\darknet\\x64\\data\\obj-rc-class_red_3.names
+backup = D:\\ENV\\darknet\\build\\darknet\\x64\\backup\\rc\\
+

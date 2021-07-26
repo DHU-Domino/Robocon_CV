@@ -146,13 +146,13 @@ int main()
     signal(SIGINT, sig_exit);
 
     thread seriall(serialTask);
-    thread img2web(img2WebTask);
+    //thread img2web(img2WebTask);
 
     int setting;
     mainPC image_cons_prod(&setting);
     thread pro(&mainPC::ImageProducer, std::ref(image_cons_prod)); // pass by reference
     thread con(&mainPC::ImageConsumer, std::ref(image_cons_prod));
-
+/*
     http::Server s;
     s.on_req(
         [](const http::Req &req, http::Res &res)
@@ -214,9 +214,9 @@ int main()
                 res.set_status(405);
         });
     s.start("0.0.0.0", 80);
-
+*/
     seriall.join();
-    img2web.join();
+    //img2web.join();
     pro.join();
     con.join();
 

@@ -72,8 +72,44 @@ mainPC::mainPC(int *setting)
     deltaX[1][3] = storage["P2D4"].real();
     deltaX[1][4] = storage["P2D5"].real();
 
-    save = storage["save"].real();
+    deltaX[2][0] = storage["P3D1"].real();
+    deltaX[2][1] = storage["P3D2"].real();
+    deltaX[2][2] = storage["P3D3"].real();
+    deltaX[2][3] = storage["P3D4"].real();
+    deltaX[2][4] = storage["P3D5"].real();
+
+    saveDebug = storage["saveDebug"].real();
+    saveRecord = storage["saveRecord"].real();
     ExposeTime = storage["ExposeTime"].real();
+
+    if(1 == saveRecord)
+    {
+        video_writer_src = initVideoWriter("_src");
+        video_writer_fix = initVideoWriter("_fix");
+    }
+        
+}
+
+VideoWriter mainPC::initVideoWriter(string x) {
+    VideoWriter video;
+    std::ifstream in("/home/domino/robocon/record/cnt.txt");
+    int cnt = 0;
+    if (in.is_open()) {
+        in >> cnt;
+        in.close();
+    }
+    std::string file_name = "/home/domino/robocon/record/" + std::to_string(cnt) + x + ".avi";
+    cnt++;
+    if(x == "_fix")
+    {
+        std::ofstream out("/home/domino/robocon/record/cnt.txt");
+        if (out.is_open()) {
+            out << cnt << std::endl;
+            out.close();
+        }
+    }
+    video.open(file_name, VideoWriter::fourcc('M', 'J', 'P', 'G'), 20, cv::Size(1280, 1024), true);
+    return video;
 }
 
 void mainPC::switchModel(int color)
@@ -121,7 +157,6 @@ void mainPC::switchModel(int color)
         classNamesFile.close();
     }
 }
-
 void mainPC::ImageProducer()
 {
     if (!a.videoCheck())
@@ -134,6 +169,7 @@ void mainPC::ImageProducer()
         a.streamControl(1);
         cerr << "ok\n";
     }
+    
     while (1)
     {
         while (prdIndex - csmIndex >= 1)
@@ -330,6 +366,7 @@ void mainPC::ImageConsumer()
                     excel["data"]["pitch_angle"] = pitch_angle;
                     cerr << "autoAim: close\n";
                 }
+                
             }
 
             vector<detectAns> dAns;
@@ -355,7 +392,7 @@ void mainPC::ImageConsumer()
                 rectangle(fix_img, box, Scalar(0, 0, 255), 1);
                 putText(fix_img, classNamesVec[classIds[idx]].c_str(), box.tl(), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0), 2, 8);
             }
-            if (save == 1)
+            if (saveDebug == 1)
             {
                 int t = chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch()).count();
                 if (t - old_t > 10)
@@ -493,6 +530,11 @@ void mainPC::ImageConsumer()
             line(fix_img, Point2i(1280 / 2, 0), Point2i(1280 / 2, 1080), cv::Scalar(255, 0, 0), 1);
             putText(fix_img, ss.str(), Point(20, 40), 0, 1, Scalar(0, 0, 255), 2);
             putText(fix_img, "last_delta_x: " + to_string(last_delta_x), Point(20, 100), 0, 1, Scalar(0, 0, 255), 2);
+            if(1 == saveRecord)
+            {
+                video_writer_src.write(src);
+                video_writer_fix.write(fix_img);
+            }
         }
         catch (cv::Exception e)
         {

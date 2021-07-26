@@ -62,6 +62,7 @@ public:
     void ImageProducer();
     void ImageConsumer();
     void switchModel(int);
+    cv::VideoWriter initVideoWriter(std::string);
     
 private:
     cv::dnn::Net net;
@@ -70,12 +71,15 @@ private:
     std::vector<std::string> classNamesVec;
 
     video a;
+    cv::VideoWriter video_writer_src;
+    cv::VideoWriter video_writer_fix;
     kalman kal;
     int color = 0;
     int target_control = -1;
     int position_control = -1;
     int deltaX[3][5];
     int ExposeTime;
-    int save;
+    int saveDebug;
+    int saveRecord;
 };
 
