@@ -19,16 +19,9 @@ class Ui_MainWindow(object):
         self.pushButton_4 = QtWidgets.QPushButton(self.centralwidget)
         self.pushButton_4.setGeometry(QtCore.QRect(750, 180, 221, 39))
         self.pushButton_4.setObjectName("pushButton_4")
-
         self.pushButton_5 = QtWidgets.QPushButton(self.centralwidget)
         self.pushButton_5.setGeometry(QtCore.QRect(750, 220, 221, 39))
-        self.pushButton_5.setObjectName("pushButton_5")
-        self.pushButton_6 = QtWidgets.QPushButton(self.centralwidget)
-        self.pushButton_6.setGeometry(QtCore.QRect(750, 260, 221, 39))
-        self.pushButton_6.setObjectName("pushButton_6")
-        self.pushButton_7 = QtWidgets.QPushButton(self.centralwidget)
-        self.pushButton_7.setGeometry(QtCore.QRect(750, 300, 221, 39))
-        self.pushButton_7.setObjectName("pushButton_7")
+        self.pushButton_5.setObjectName("pushButton_4")
 
         self.pushButton_12 = QtWidgets.QPushButton(self.centralwidget)
         self.pushButton_12.setGeometry(QtCore.QRect(830, 10, 31, 31))
@@ -59,6 +52,7 @@ class Ui_MainWindow(object):
         self.pushButton_2.clicked.connect(MainWindow.p2_ck)
         self.pushButton_3.clicked.connect(MainWindow.p3_ck)
         self.pushButton_4.clicked.connect(MainWindow.p4_ck)
+        self.pushButton_5.clicked.connect(MainWindow.p5_ck)
 
         self.pushButton_12.clicked.connect(self.close)  # 关闭窗口
         self.pushButton_14.clicked.connect(self.showMinimized)  # 最小化窗口
@@ -75,13 +69,11 @@ class Ui_MainWindow(object):
         self.pushButton_2.setText(_translate("MainWindow", "next"))
         self.pushButton_3.setText(_translate("MainWindow", "Positive"))
         self.pushButton_4.setText(_translate("MainWindow", "Negative"))
-
-        self.pushButton_5.setText(_translate("MainWindow", "copy wccs addr"))
-        self.pushButton_6.setText(_translate("MainWindow", "copy dianping addr"))
-        self.pushButton_7.setText(_translate("MainWindow", "copy city code"))
+        self.pushButton_5.setText(_translate("MainWindow", "Drop"))
 
         self.pushButton_3.setStyleSheet('''QPushButton:hover{background:red;}''')
         self.pushButton_4.setStyleSheet('''QPushButton:hover{background:blue;}''')
+        self.pushButton_5.setStyleSheet('''QPushButton:hover{background:green;}''')
         
         self.pushButton_12.setStyleSheet('''QPushButton{background:#F76677;border-radius:15px;}
                         QPushButton:hover{background:red;}''')

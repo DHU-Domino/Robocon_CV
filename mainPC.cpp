@@ -117,13 +117,15 @@ void mainPC::switchModel(int color)
     if (0 == color)
     {
         net = cv::dnn::readNetFromDarknet("/home/domino/robocon/asset/yolov4-tiny-obj-rc-class_red_3.cfg",
-                                          "/home/domino/robocon/asset/7.23-d2-red3/yolov4-tiny-obj-rc-class_red_3_final.weights");
+                                          //"/home/domino/robocon/asset/7.23-d2-red3/yolov4-tiny-obj-rc-class_red_3_final.weights");
+                                          "/home/domino/robocon/asset/7.26-d2-red3/yolov4-tiny-obj-rc-class_red_3_final.weights");
         classNamesFile.open("/home/domino/robocon/asset/obj-rc-class_red_3.names");
     }
     else if (1 == color)
     {
         net = cv::dnn::readNetFromDarknet("/home/domino/robocon/asset/yolov4-tiny-obj-rc-class_blue_3.cfg",
-                                          "/home/domino/robocon/asset/7.23-d2-blue3/yolov4-tiny-obj-rc-class_blue_3_final.weights");
+                                          //"/home/domino/robocon/asset/7.23-d2-blue3/yolov4-tiny-obj-rc-class_blue_3_final.weights");
+                                          "/home/domino/robocon/asset/7.26-d2-blue3/yolov4-tiny-obj-rc-class_blue_3_final.weights");
         classNamesFile.open("/home/domino/robocon/asset/obj-rc-class_blue_3.names");
     }
     else if (2 == color)
