@@ -1,9 +1,9 @@
 # Robocon_CV
 
 ## 整体方案介绍
-我们的机器人的结构如下图所示
-![4](./git_asset/4.bmp)
-我们采用的是单目RGB相机+TOF测距的方案。
+我们的机器人的结构如下图所示  
+![4](./git_asset/4.bmp)  
+我们采用的是单目RGB相机+TOF测距的方案。  
 从单片机接收到想要瞄准的桶的编号，单目相机得到图像后使用YOLOv4-tiny训练后的红、蓝模型得到目标桶的位置，计算目标桶与当前视角中线之间的像素偏差，根据相机视场角近似算出像素值对应的转角,单片机对底盘进行闭环控制。
 ![1](./git_asset/1.png)
 通过拟合曲线的方式，实现拉弓长度和桶距离的关系映射。由于各种各样的误差，实际上在使用拟合公式的时候，调整了截距以实现比较好的命中率。
@@ -18,11 +18,14 @@
 4. 通信:USB-TTL串口
 
 ### 一些定义
-关于桶的编号，从己方视角来看为
+关于桶的编号，从己方视角来看为  
+```
   2  
 1 3 5  
-  4  
-即一型桶为1、5，二型桶为2、4，三型桶为3。
+  4
+``` 
+
+即一型桶为1、5，二型桶为2、4，三型桶为3。  
 在视角内能同时识别到2和4号桶的时候，根据机器人所在位置，判断瞄准的是左边的还是右边的桶
 
 ## 参考资料
@@ -33,7 +36,7 @@
 2. [WzSerialportPlus](https://github.com/ayowin/WzSerialportPlus)
 3. [webcam-http-streamer](https://github.com/s4mu313/webcam-http-streamer)
 
-还有很多在做RoboMaster时参考了的代码，例如上交和深圳大学的视觉开源，非常感谢。
+还有很多在做RoboMaster时参考了的代码，例如上交和深圳大学的视觉开源，非常感谢。  
 特别说明的一条是，在使用co与OpenCV时，由于我比较菜，不会解决命名空间有冲突的问题，所以额外对co中的命名空间进行了修改再编译，这个可以在[main.cpp](https://github.com/DHU-Domino/Robocon_CV/blob/main/main.cpp#L84)中发现到。
 
 ## 配置文件
@@ -60,3 +63,6 @@ setting.xml中包含了颜色模型的选择，各个位置对应各个桶的修
     sudo systemctl start run_domino.service
     sudo systemctl status run_domino.service
 ```
+
+## 联系方式
+QQ:496738668
